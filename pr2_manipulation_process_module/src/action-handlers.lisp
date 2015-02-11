@@ -463,7 +463,7 @@
                                              (+ (desig-prop-value
                                                  object-designator
                                                  'desig-props::plane-distance)
-                                                0.01)) ;; Add one centimeter for good measure
+                                                0.02)) ;; Add two centimeters for good measure
                                            0.0)))
          (lazy-putdown-poses
            (crs:prolog
