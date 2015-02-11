@@ -104,7 +104,10 @@ trying to assume the pose `pose'."
                           (pose-stamped (slot-value parameter-set slot-name))
                           (distance (link-distance-from-pose link-name pose-stamped)))
                      (<= distance threshold)))
-                 parameter-sets)))
+                 (cpl:mapcar-clean (lambda (parameter-set)
+                                     (when (slot-value parameter-set slot-name)
+                                       parameter-set))
+                                   parameter-sets))))
 
 (defun assume-poses (parameter-sets slot-name &key ignore-collisions)
   "Moves all arms defined in `parameter-sets' into the poses given by
