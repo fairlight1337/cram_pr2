@@ -234,7 +234,7 @@ positions, grasp-type, effort to use) are defined in the list
           ((cram-plan-failures:manipulation-failure (f)
              (declare (ignore f))
              (assume 'pre-putdown-pose)))
-        (assume 'putdown-pose t)
+        (assume 'putdown-pose)
         (cpl:par-loop (param-set parameter-sets)
           (open-gripper (arm param-set)))
         (block unhand
