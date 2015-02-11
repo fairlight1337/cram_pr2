@@ -58,15 +58,6 @@
 (defvar *trajectory-action-both* nil)
 (defvar *trajectory-action-torso* nil)
 
-(defvar *left-safe-pose* (tf:make-pose-stamped
-                          "base_link" (ros-time)
-                          (tf:make-3d-vector 0.3 0.5 1.3)
-                          (tf:euler->quaternion :ax pi)))
-(defvar *right-safe-pose* (tf:make-pose-stamped
-                           "base_link" (ros-time)
-                           (tf:make-3d-vector 0.3 -0.5 1.3)
-                           (tf:euler->quaternion :ax pi)))
-
 (defun init-pr2-manipulation-process-module ()
   (setf *gripper-action-left*
         (actionlib:make-action-client

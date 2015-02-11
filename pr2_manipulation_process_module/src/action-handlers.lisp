@@ -205,7 +205,7 @@
 (define-hook cram-language::on-begin-grasp (obj-desig))
 (define-hook cram-language::on-finish-grasp (log-id success))
 (define-hook cram-language::on-grasp-decisions-complete
-    (log-id object-name pregrasp-pose grasp-pose side object-pose))
+    (log-id grasp-description))
 
 (defun update-action-designator (action-desig new-properties)
   (make-designator 'action (update-designator-properties
@@ -248,16 +248,24 @@
                   :arm (side assignment)
                   :close-radius (or (close-radius assignment) 0.0)
                   :safe-pose (ecase (side assignment)
-                               (:left *left-safe-pose*)
-                               (:right *right-safe-pose*))
+                               (:left *park-pose-left-default*)
+                               (:right *park-pose-right-default*))
                   :effort (min-object-grasp-effort obj)))))
       (let ((params (mapcar #'grasp-parameters assignments-list)))
         (dolist (param-set params)
           (let ((pub (roslisp:advertise "/dhdhdh" "geometry_msgs/PoseStamped")))
             (roslisp:publish pub (tf:pose-stamped->msg (pregrasp-pose param-set))))
           (cram-language::on-grasp-decisions-complete
-           log-id obj-name (pregrasp-pose param-set)
-           (grasp-pose param-set) (arm param-set) obj-pose))
+           log-id `(,@(mapcar (lambda (param-set)
+                                `(grasp ((arm ,(arm param-set))
+                                         (effort ,(effort param-set))
+                                         (object-pose
+                                          ,(cl-tf2:ensure-pose-stamped-transformed
+                                            *tf2* obj-pose (tf:frame-id (grasp-pose param-set))))
+                                         (grasp-type ,(grasp-type param-set))
+                                         (pregrasp-pose ,(pregrasp-pose param-set))
+                                         (grasp-pose ,(grasp-pose param-set)))))
+                              params))))
         (update-action-designator
          action-desig `(,@(mapcar (lambda (param-set)
                                     `(grasp ((arm ,(arm param-set))
@@ -292,35 +300,38 @@
 (def-action-handler grasp (action-desig object)
   "Handles the grasping of any given `object'. Calculates proper grasping poses for the object, based on physical gripper characteristics, free grippers, object grasp points (handles), grasp type for this object, and position of the object relative to the robot's grippers. `action-desig' is the action designator instance that triggered this handler's execution, and is later updated with more precise grasping information based on the actual infered action."
   (display-object-handles object)
-  (let ((grasp-assignments (crs:prolog `(grasp-assignments ,object ?grasp-assignments)))
-        (log-id (first (cram-language::on-begin-grasp object)))
-        (success nil))
-    (unwind-protect
-         (unless
-             (block object-lost-catch
-               (cpl:with-failure-handling
-                   ((cram-plan-failures:object-lost (f)
-                      (declare (ignore f))
-                      (ros-warn (pr2 manip-pm) "Lost object. Canceling grasp.")
-                      (return-from object-lost-catch)))
-                 (lazy-try-until assignments-list ?grasp-assignments grasp-assignments
-                   (block next-assignment-list
-                     (cpl:with-failure-handling
-                         ((cram-plan-failures:manipulation-pose-unreachable (f)
-                            (declare (ignore f))
-                            (ros-warn (pr2 manip-pm) "Try next grasp assignment")
-                            (return-from next-assignment-list)))
-                       (ros-info (pr2 manip-pm) "Performing grasp assignment(s):~%")
-                       (dolist (assignment assignments-list)
-                         (ros-info (pr2 manip-pm) " - ~a/~a"
-                                   (grasp-type assignment)
-                                   (side assignment)))
-                       (perform-grasps action-desig object assignments-list :log-id log-id)
-                       (ros-info (pr2 manip-pm) "Successful grasp")
-                       (setf success t)
-                       (success))))))
-           (cpl:fail 'manipulation-pose-unreachable))
-      (cram-language::on-finish-grasp log-id success))))
+  (let ((grasp-assignments (crs:prolog `(grasp-assignments ,object ?grasp-assignments))))
+    (unless
+        (block object-lost-catch
+          (cpl:with-failure-handling
+              ((cram-plan-failures:object-lost (f)
+                 (declare (ignore f))
+                 (ros-warn (pr2 manip-pm) "Lost object. Canceling grasp.")
+                 (return-from object-lost-catch)))
+            (lazy-try-until assignments-list ?grasp-assignments grasp-assignments
+              (block next-assignment-list
+                (cpl:with-failure-handling
+                    ((cram-plan-failures:manipulation-pose-unreachable (f)
+                       (declare (ignore f))
+                       (ros-warn (pr2 manip-pm) "Try next grasp assignment")
+                       (return-from next-assignment-list)))
+                  (let ((log-id (first (cram-language::on-begin-grasp object)))
+                        (success nil))
+                    (unwind-protect
+                         (progn
+                           (ros-info (pr2 manip-pm) "Performing grasp assignment(s):~%")
+                           (dolist (assignment assignments-list)
+                             (ros-info (pr2 manip-pm) " - ~a/~a"
+                                       (grasp-type assignment)
+                                       (side assignment)))
+                           (perform-grasps
+                            action-desig object assignments-list
+                            :log-id log-id)
+                           (ros-info (pr2 manip-pm) "Successful grasp")
+                           (setf success t)
+                           (success))
+                      (cram-language::on-finish-grasp log-id success))))))))
+      (cpl:fail 'manipulation-pose-unreachable))))
 
 (defun pose-pointing-away-from-base (object-pose)
   (let ((ref-frame "/base_link")
