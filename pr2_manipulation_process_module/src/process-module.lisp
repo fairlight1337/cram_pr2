@@ -197,7 +197,33 @@
                       trajectories :ignore-va t)))
     (cond (plan-only trajectory)
           (t (moveit:execute-trajectory trajectory)))))
-    
+
+(defun gripper-at-pose-p (side pose-stamped
+                          &key cartesian-thres angular-thres)
+  (let* ((cartesian-distance-threshold (or cartesian-thres 0.02))
+         (angular-distance-threshold (or angular-thres 0.1))
+         (link-name (cut:var-value
+                     '?link
+                     (first
+                      (crs:prolog
+                       `(manipulator-link ,side ?link)))))
+         (link-id-pose
+           (tf:pose->pose-stamped
+            link-name 0.0 (tf:make-identity-pose)))
+         (link-compare-pose
+           (cl-tf2:ensure-pose-stamped-transformed
+            *tf2* link-id-pose (tf:frame-id pose-stamped)))
+         (dist-v (tf:v-dist
+                  (tf:origin pose-stamped)
+                  (tf:origin link-compare-pose)))
+         (dist-a-pre (tf:angle-between-quaternions
+                      (tf:orientation pose-stamped)
+                      (tf:orientation link-compare-pose)))
+         (dist-a (cond ((> dist-a-pre pi)
+                        (- dist-a-pre (* 2 pi)))
+                       (t dist-a-pre))))
+    (and (<= dist-v cartesian-distance-threshold)
+         (<= dist-a angular-distance-threshold))))
 
 (defun execute-move-arm-pose (side pose-stamped
                               &key allowed-collision-objects
@@ -208,85 +234,90 @@
                                 max-tilt
                                 quiet)
   (unless quiet (ros-info (pr2 manip-pm) "Executing arm movement"))
-  (let* ((allowed-collision-objects
-           (cond (ignore-collisions
-                  (append allowed-collision-objects
-                          (links-for-arm-side side)))
-                 (t allowed-collision-objects)))
-         (link-name (cut:var-value
-                     '?link
-                     (first
-                      (crs:prolog
-                       `(manipulator-link ,side ?link)))))
-         (planning-group (cut:var-value
-                          '?group
-                          (first
-                           (crs:prolog
-                            `(planning-group ,side ?group))))))
-    (let ((log-id (first (cram-language::on-prepare-move-arm
-                          link-name pose-stamped
-                          planning-group ignore-collisions))))
-      (cpl:with-failure-handling
-          ((moveit:no-ik-solution (f)
-             (declare (ignore f))
-             (ros-error (move arm) "No IK solution found.")
-             (cram-language::on-finish-move-arm log-id nil)
-             (error 'manipulation-pose-unreachable
-                    :result (list side pose-stamped)))
-           (moveit:planning-failed (f)
-             (declare (ignore f))
-             (ros-error (move arm) "Planning failed.")
-             (cram-language::on-finish-move-arm log-id nil)
-             (error 'manipulation-pose-unreachable
-                    :result (list side pose-stamped)))
-           (moveit:goal-violates-path-constraints (f)
-             (declare (ignore f))
-             (ros-error (move arm) "Goal violates path constraints.")
-             (cram-language::on-finish-move-arm log-id nil)
-             (error 'manipulation-pose-unreachable
-                    :result (list side pose-stamped)))
-           (moveit:invalid-goal-constraints (f)
-             (declare (ignore f))
-             (ros-error (move arm) "Invalid goal constraints.")
-             (cram-language::on-finish-move-arm log-id nil)
-             (error 'manipulation-pose-unreachable
-                    :result (list side pose-stamped)))
-           (moveit:timed-out (f)
-             (declare (ignore f))
-             (ros-error (move arm) "Timeout.")
-             (cram-language::on-finish-move-arm log-id nil)
-             (error 'manipulation-pose-unreachable
-                    :result (list side pose-stamped)))
-           (moveit:goal-in-collision (f)
-             (declare (ignore f))
-             (ros-error (move arm) "Goal in collision.")
-             (cram-language::on-finish-move-arm log-id nil)
-             (error 'manipulation-pose-occupied
-                    :result (list side pose-stamped))))
-        (cond ((let ((result
-                       (multiple-value-bind (start trajectory)
-                           (moveit:move-link-pose
-                            link-name
-                            planning-group pose-stamped
-                            :ignore-collisions ignore-collisions
-                            :allowed-collision-objects allowed-collision-objects
-                            :touch-links (links-for-arm-side side)
-                            :plan-only plan-only
-                            :start-state start-state
-                            :collidable-objects collidable-objects
-                            :max-tilt max-tilt)
+  (cond ((gripper-at-pose-p side pose-stamped)
+         (ros-info (pr2 manip-pm) "Gripper ~a already at target pose, skipping movement."
+                   side)
+         nil)
+        (t
+         (let* ((allowed-collision-objects
+                  (cond (ignore-collisions
+                         (append allowed-collision-objects
+                                 (links-for-arm-side side)))
+                        (t allowed-collision-objects)))
+                (link-name (cut:var-value
+                            '?link
+                            (first
+                             (crs:prolog
+                              `(manipulator-link ,side ?link)))))
+                (planning-group (cut:var-value
+                                 '?group
+                                 (first
+                                  (crs:prolog
+                                   `(planning-group ,side ?group))))))
+           (let ((log-id (first (cram-language::on-prepare-move-arm
+                                 link-name pose-stamped
+                                 planning-group ignore-collisions))))
+             (cpl:with-failure-handling
+                 ((moveit:no-ik-solution (f)
+                    (declare (ignore f))
+                    (ros-error (move arm) "No IK solution found.")
+                    (cram-language::on-finish-move-arm log-id nil)
+                    (error 'manipulation-pose-unreachable
+                           :result (list side pose-stamped)))
+                  (moveit:planning-failed (f)
+                    (declare (ignore f))
+                    (ros-error (move arm) "Planning failed.")
+                    (cram-language::on-finish-move-arm log-id nil)
+                    (error 'manipulation-pose-unreachable
+                           :result (list side pose-stamped)))
+                  (moveit:goal-violates-path-constraints (f)
+                    (declare (ignore f))
+                    (ros-error (move arm) "Goal violates path constraints.")
+                    (cram-language::on-finish-move-arm log-id nil)
+                    (error 'manipulation-pose-unreachable
+                           :result (list side pose-stamped)))
+                  (moveit:invalid-goal-constraints (f)
+                    (declare (ignore f))
+                    (ros-error (move arm) "Invalid goal constraints.")
+                    (cram-language::on-finish-move-arm log-id nil)
+                    (error 'manipulation-pose-unreachable
+                           :result (list side pose-stamped)))
+                  (moveit:timed-out (f)
+                    (declare (ignore f))
+                    (ros-error (move arm) "Timeout.")
+                    (cram-language::on-finish-move-arm log-id nil)
+                    (error 'manipulation-pose-unreachable
+                           :result (list side pose-stamped)))
+                  (moveit:goal-in-collision (f)
+                    (declare (ignore f))
+                    (ros-error (move arm) "Goal in collision.")
+                    (cram-language::on-finish-move-arm log-id nil)
+                    (error 'manipulation-pose-occupied
+                           :result (list side pose-stamped))))
+               (cond ((let ((result
+                              (multiple-value-bind (start trajectory)
+                                  (moveit:move-link-pose
+                                   link-name
+                                   planning-group pose-stamped
+                                   :ignore-collisions ignore-collisions
+                                   :allowed-collision-objects allowed-collision-objects
+                                   :touch-links (links-for-arm-side side)
+                                   :plan-only plan-only
+                                   :start-state start-state
+                                   :collidable-objects collidable-objects
+                                   :max-tilt max-tilt)
                                         ;:reference-frame "base_link")
-                         (declare (ignorable start))
-                         (values trajectory start))))
-                 (cram-language::on-finish-move-arm log-id t)
-                 (let ((bs-update (plan-knowledge:on-event
-                                   (make-instance
-                                    'plan-knowledge:robot-state-changed))))
-                   (cond (plan-only result)
-                         (t bs-update)))))
-              (t (cram-language::on-finish-move-arm log-id nil)
-                 (error 'manipulation-failed
-                        :result (list side pose-stamped))))))))
+                                (declare (ignorable start))
+                                (values trajectory start))))
+                        (cram-language::on-finish-move-arm log-id t)
+                        (let ((bs-update (plan-knowledge:on-event
+                                          (make-instance
+                                           'plan-knowledge:robot-state-changed))))
+                          (cond (plan-only result)
+                                (t bs-update)))))
+                     (t (cram-language::on-finish-move-arm log-id nil)
+                        (error 'manipulation-failed
+                               :result (list side pose-stamped))))))))))
 
 (define-hook cram-language::on-close-gripper (side max-effort position))
 (define-hook cram-language::on-open-gripper (side max-effort position))
