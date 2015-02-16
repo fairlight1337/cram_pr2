@@ -222,8 +222,8 @@
          (dist-a (cond ((> dist-a-pre pi)
                         (- dist-a-pre (* 2 pi)))
                        (t dist-a-pre))))
-    (and (<= dist-v cartesian-distance-threshold)
-         (<= dist-a angular-distance-threshold))))
+    (and (<= (abs dist-v) cartesian-distance-threshold)
+         (<= (abs dist-a) angular-distance-threshold))))
 
 (defun execute-move-arm-pose (side pose-stamped
                               &key allowed-collision-objects
@@ -232,9 +232,12 @@
                                 start-state
                                 collidable-objects
                                 max-tilt
-                                quiet)
+                                quiet
+                                ignore-position-check
+                                raise-elbow)
   (unless quiet (ros-info (pr2 manip-pm) "Executing arm movement"))
-  (cond ((gripper-at-pose-p side pose-stamped)
+  (cond ((and (not ignore-position-check)
+              (gripper-at-pose-p side pose-stamped))
          (ros-info (pr2 manip-pm) "Gripper ~a already at target pose, skipping movement."
                    side)
          nil)
@@ -305,7 +308,8 @@
                                    :plan-only plan-only
                                    :start-state start-state
                                    :collidable-objects collidable-objects
-                                   :max-tilt max-tilt)
+                                   :max-tilt max-tilt
+                                   :raise-elbow raise-elbow)
                                         ;:reference-frame "base_link")
                                 (declare (ignorable start))
                                 (values trajectory start))))
