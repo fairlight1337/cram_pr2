@@ -68,7 +68,7 @@
      :name joint-names
      :position positions)))
 
-(defun arm-pose->trajectory (arm pose &key ignore-collisions)
+(defun arm-pose->trajectory (arm pose &key ignore-collisions raise-elbow ignore-position-check)
   "Calculated a trajectory from the current pose of gripper `arm' when
 trying to assume the pose `pose'."
   (cpl:with-failure-handling
@@ -80,7 +80,9 @@ trying to assume the pose `pose'."
           "Failed to generate trajectory for ~a."
           arm)))
     (execute-move-arm-pose arm pose :quiet t :plan-only t
-                                    :ignore-collisions ignore-collisions)))
+                                    :ignore-collisions ignore-collisions
+                                    :raise-elbow raise-elbow
+                                    :ignore-position-check ignore-position-check)))
 
 (defun link-distance-from-pose (link-name pose-stamped)
   (let* ((link-identity-pose (tf:pose->pose-stamped
@@ -146,7 +148,8 @@ motion."
                      (arm-pose->trajectory
                       (arm parameter-set)
                       (slot-value parameter-set slot-name)
-                      :ignore-collisions ignore-collisions)))
+                      :ignore-collisions ignore-collisions
+                      :raise-elbow (arm parameter-set))))
                  parameter-sets)
                 :ignore-va t)))
       (unless (pose-assumed parameter-sets slot-name)
@@ -276,6 +279,7 @@ positions, grasp-type, effort to use) are defined in the list
                         (execute-move-arm-pose
                          arm pose :plan-only t
                                   :quiet t
+                                  :raise-elbow arm
                                   :ignore-collisions t)))
                     target-arm-poses))))))
 
