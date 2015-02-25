@@ -37,6 +37,16 @@
    (tf:make-3d-vector
     -0.20 0.10 0.0)
    (tf:euler->quaternion :ax (/ pi -2))))
+(defparameter *pregrasp-pull-offset*
+  (tf:make-pose
+   (tf:make-3d-vector
+    -0.28 -0.02 0)
+   (tf:euler->quaternion :ax (/ pi 2)))) ;; Fix me
+(defparameter *grasp-pull-offset*
+  (tf:make-pose
+   (tf:make-3d-vector
+    -0.18 -0.02 0)
+   (tf:euler->quaternion :ax (/ pi 2)))) ;; Fix me
 (defparameter *grasp-offset*
   (tf:make-pose
    (tf:make-3d-vector

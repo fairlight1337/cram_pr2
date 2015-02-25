@@ -97,6 +97,80 @@
                 (:right *park-pose-right-default*))))
            arms)))
 
+(def-action-handler shove-into (object target-pose)
+  (labels ((relative-linear-arm-translation->trajectory
+             (arm rel-position &key (ignore-collisions t)
+                  (raise-elbow t))
+             (let* ((id-pose
+                      (tf:pose->pose-stamped
+                       (case arm
+                         (:left "l_wrist_roll_link")
+                         (:right "r_wrist_roll_link"))
+                       0.0 (tf:make-identity-pose)))
+                    (tl-pose
+                      (cl-tf2:ensure-pose-stamped-transformed
+                       *tf2* id-pose "torso_lift_link"
+                       :use-current-ros-time t))
+                    (tl-translated-pose
+                      (tf:copy-pose-stamped
+                       tl-pose
+                       :origin (tf:v+ (tf:origin tl-pose)
+                                      rel-position))))
+               (pr2-manip-pm::arm-pose->trajectory
+                arm tl-translated-pose
+                :ignore-collisions ignore-collisions
+                :raise-elbow (when raise-elbow arm)))))
+    (moveit:execute-trajectories
+     (list (relative-linear-arm-translation->trajectory
+            :left (tf:make-3d-vector 0.0 0.0 0.0))
+           (relative-linear-arm-translation->trajectory
+            :right (tf:make-3d-vector 0.0 0.0 0.0)))
+     :ignore-va t)))
+    ;; (moveit:execute-trajectories
+    ;;  (list (relative-linear-arm-translation->trajectory
+    ;;         :left (tf:make-3d-vector 0.0 0.0 0.025))
+    ;;        (relative-linear-arm-translation->trajectory
+    ;;         :right (tf:make-3d-vector 0.0 0.0 0.025)))
+    ;;  :ignore-va t)))
+
+(def-action-handler pull-open (semantic-handle)
+  (let ((grasp-assignments (crs:prolog `(grasp-assignments ,semantic-handle ?grasp-assignments)))
+        (arm nil))
+    (unless
+        (lazy-try-until assignments-list ?grasp-assignments grasp-assignments
+          (block next-assignment-list
+            (cpl:with-failure-handling
+                ((cram-plan-failures:manipulation-pose-unreachable (f)
+                   (declare (ignore f))
+                   (ros-warn (pr2 manip-pm) "Try next grasp assignment")
+                   (return-from next-assignment-list)))
+              (ros-info (pr2 manip-pm) "Performing grasp assignment(s):~%")
+              (dolist (assignment assignments-list)
+                (ros-info (pr2 manip-pm) " - ~a/~a"
+                          (grasp-type assignment)
+                          (side assignment)))
+              (perform-grasps
+               (make-designator 'action nil)
+               semantic-handle assignments-list)
+              (ros-info (pr2 manip-pm) "Successful grasp")
+              (setf arm (side (first assignments-list)))
+              (success))))
+      (cpl:fail 'manipulation-pose-unreachable))
+    (when arm
+      (execute-move-arm-pose
+       arm
+       (cl-tf2:ensure-pose-stamped-transformed
+        cram-roslisp-common:*tf2*
+        (tf:make-pose-stamped
+         (case arm
+           (:left "l_wrist_roll_link")
+           (:right "r_wrist_roll_link"))
+         0.0
+         (tf:make-3d-vector -0.2 0.0 0.0)
+         (tf:make-identity-rotation))
+        "torso_lift_link")
+       :ignore-collisions t))))
+
 (def-action-handler park (arms obj &optional obstacles)
   (declare (ignore obstacles))
   (let ((arms (force-ll arms)))
@@ -227,8 +301,10 @@
           (t 100))))
 
 (defun perform-grasps (action-desig object assignments-list &key log-id)
-  (let* ((obj (desig:newest-effective-designator object))
-         (obj-pose (reference (desig-prop-value obj 'desig-props:at)))
+  (let* ((obj (or (desig:newest-effective-designator object)
+                  object))
+         (obj-at (desig-prop-value obj 'desig-props:at))
+         (obj-pose (when obj-at (reference obj-at)))
          (obj-name (desig-prop-value obj 'desig-props:name)))
     (labels ((calculate-grasp-pose (pose grasp-offset gripper-offset)
                (cl-tf2:ensure-pose-stamped-transformed
@@ -255,50 +331,54 @@
         (dolist (param-set params)
           (let ((pub (roslisp:advertise "/dhdhdh" "geometry_msgs/PoseStamped")))
             (roslisp:publish pub (tf:pose-stamped->msg (pregrasp-pose param-set))))
-          (cram-language::on-grasp-decisions-complete
-           log-id `(,@(mapcar (lambda (param-set)
-                                `(grasp ((arm ,(arm param-set))
-                                         (effort ,(effort param-set))
-                                         (object-name ,obj-name)
-                                         (object-pose
-                                          ,(cl-tf2:ensure-pose-stamped-transformed
-                                            *tf2* obj-pose (tf:frame-id (grasp-pose param-set))))
-                                         (grasp-type ,(grasp-type param-set))
-                                         (pregrasp-pose ,(pregrasp-pose param-set))
-                                         (grasp-pose ,(grasp-pose param-set)))))
-                              params))))
-        (update-action-designator
-         action-desig `(,@(mapcar (lambda (param-set)
-                                    `(grasp ((arm ,(arm param-set))
-                                             (effort ,(effort param-set))
-                                             (object-pose
-                                              ,(cl-tf2:ensure-pose-stamped-transformed
-                                                *tf2* obj-pose (tf:frame-id (grasp-pose param-set))))
-                                             (grasp-type ,(grasp-type param-set))
-                                             (pregrasp-pose ,(pregrasp-pose param-set))
-                                             (grasp-pose ,(grasp-pose param-set)))))
-                                  params)))
+          (when (and obj-pose action-desig)
+            (cram-language::on-grasp-decisions-complete
+             log-id `(,@(mapcar (lambda (param-set)
+                                  `(grasp ((arm ,(arm param-set))
+                                           (effort ,(effort param-set))
+                                           (object-name ,obj-name)
+                                           (object-pose
+                                            ,(cl-tf2:ensure-pose-stamped-transformed
+                                              *tf2* obj-pose (tf:frame-id (grasp-pose param-set))))
+                                           (grasp-type ,(grasp-type param-set))
+                                           (pregrasp-pose ,(pregrasp-pose param-set))
+                                           (grasp-pose ,(grasp-pose param-set)))))
+                                params)))))
+        (when action-desig
+          (update-action-designator
+           action-desig `(,@(mapcar (lambda (param-set)
+                                      `(grasp ((arm ,(arm param-set))
+                                               (effort ,(effort param-set))
+                                               (object-pose
+                                                ,(cl-tf2:ensure-pose-stamped-transformed
+                                                  *tf2* obj-pose (tf:frame-id (grasp-pose param-set))))
+                                               (grasp-type ,(grasp-type param-set))
+                                               (pregrasp-pose ,(pregrasp-pose param-set))
+                                               (grasp-pose ,(grasp-pose param-set)))))
+                                    params))))
         (execute-grasps obj-name params)
-        (dolist (param-set params)
-          (with-vars-strictly-bound (?link-name)
-              (lazy-car
-               (prolog
-                `(cram-manipulation-knowledge:end-effector-link
-                  ,(arm param-set) ?link-name)))
-            (plan-knowledge:on-event
-             (make-instance 'plan-knowledge:object-attached
-                            :object obj
-                            :link ?link-name
-                            :side (arm param-set)))))
-        (let ((at (desig-prop-value obj 'desig-props:at)))
-          (make-designator
-           'location
-           (append (description at)
-                   (mapcar (lambda (param-set)
-                             `((handle (,(arm param-set)
-                                        ,(object-part param-set)))))
-                           params))
-           (desig:current-desig at)))))))
+        (when action-desig
+          (dolist (param-set params)
+            (with-vars-strictly-bound (?link-name)
+                (lazy-car
+                 (prolog
+                  `(cram-manipulation-knowledge:end-effector-link
+                    ,(arm param-set) ?link-name)))
+              (plan-knowledge:on-event
+               (make-instance 'plan-knowledge:object-attached
+                              :object obj
+                              :link ?link-name
+                              :side (arm param-set)))))
+          (let ((at (desig-prop-value obj 'desig-props:at)))
+            (make-designator
+             'location
+             (append (description at)
+                     (mapcar (lambda (param-set)
+                               `((handle ,(vector
+                                           (arm param-set)
+                                           (object-part param-set)))))
+                             params))
+             (desig:current-desig at))))))))
 
 (def-action-handler grasp (action-desig object)
   "Handles the grasping of any given `object'. Calculates proper grasping poses for the object, based on physical gripper characteristics, free grippers, object grasp points (handles), grasp type for this object, and position of the object relative to the robot's grippers. `action-desig' is the action designator instance that triggered this handler's execution, and is later updated with more precise grasping information based on the actual infered action."
