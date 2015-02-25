@@ -236,7 +236,7 @@
   (<- (action-desig ?desig (noop ?desig))
     (trajectory-desig? ?desig)
     (desig-prop ?desig (pose open)))
-
+  
   (<- (action-desig ?desig (park-object ?obj ?grasp-assignments))
     (trajectory-desig? ?desig)
     (desig-prop ?desig (to park))
@@ -281,9 +281,20 @@
     (desig-prop ?desig (obj ?obj))
     (newest-effective-designator ?obj ?current-obj))
   
+  (<- (action-desig ?desig (shove-into ?current-obj ?target-pose))
+    (trajectory-desig? ?desig)
+    (desig-prop ?desig (to shove-into))
+    (desig-prop ?desig (obj ?obj))
+    (current-designator ?obj ?current-obj)
+    (desig-prop ?desig (pose ?target-pose)))
+  
   (<- (grasp-offsets top-slide-down ?pregrasp-offset ?grasp-offset)
     (symbol-value *pregrasp-top-slide-down-offset* ?pregrasp-offset)
     (symbol-value *grasp-top-slide-down-offset* ?grasp-offset))
+  
+  (<- (grasp-offsets pull ?pregrasp-offset ?grasp-offset)
+    (symbol-value *pregrasp-pull-offset* ?pregrasp-offset)
+    (symbol-value *grasp-pull-offset* ?grasp-offset))
   
   (<- (grasp-offsets ?_ ?pregrasp-offset ?grasp-offset) ;; For example, 'push'
     (symbol-value *pregrasp-offset* ?pregrasp-offset)
@@ -312,6 +323,26 @@
     (not (equal ?cost nil)))
   
   (<- (arm-handle-assignment ?object ?arm-handle-combo ?grasp-assignment)
+    (desig-prop ?object (desig-props:type desig-props::semantic-handle))
+    (member (?arm . ?handle) ?arm-handle-combo)
+    (once (grasp-offsets pull ?pregrasp-offset ?grasp-offset))
+    (gripper-offset ?arm ?gripper-offset)
+    (desig-prop ?handle (at ?location))
+    (lisp-fun reference ?location ?pose)
+    (open-gripper ?arm)
+    (object-pose-reachable ?object ?pose ?arm)
+    (lisp-fun make-grasp-assignment
+              :side ?arm
+              :grasp-type pull
+              :pose ?pose
+              :handle ?handle
+              :pregrasp-offset ?pregrasp-offset
+              :grasp-offset ?grasp-offset
+              :gripper-offset ?gripper-offset
+              ?grasp-assignment))
+  
+  (<- (arm-handle-assignment ?object ?arm-handle-combo ?grasp-assignment)
+    (not (desig-prop ?object (desig-props:type desig-props::semantic-handle)))
     (member (?arm . ?handle) ?arm-handle-combo)
     (once (or (grasp-type ?handle ?grasp-type)
               (grasp-type ?object ?grasp-type)))
@@ -344,7 +375,15 @@
                               ?carry-handles))
          (equal ?carry-handles 1))))
   
+  (<- (free-arms-handles-combos ?semantic-handle ?combos)
+    (desig-prop ?semantic-handle (desig-props:type desig-props::semantic-handle))
+    (free-arms ?free-arms)
+    (lisp-fun list ?semantic-handle ?handles)
+    (lisp-fun arms-handles-combos ?free-arms ?handles
+              :use-all-arms nil ?combos))
+  
   (<- (free-arms-handles-combos ?object ?combos)
+    (not (desig-prop ?semantic-handle (desig-props:type desig-props::semantic-handle)))
     (carry-handles ?object ?carry-handles)
     (once
      (or (and (equal ?carry-handles 1)
@@ -356,6 +395,7 @@
               :use-all-arms ?use-all-arms ?combos))
   
   (<- (grasp-assignments ?object ?grasp-assignments)
+    (not (desig-prop ?object (desig-props:type desig-props::semantic-handle)))
     (free-arms-handles-combos ?object ?arm-handle-combos)
     (member ?arm-handle-combo ?arm-handle-combos)
     (setof ?grasp-assignment
@@ -395,6 +435,20 @@
   (<- (object->grasp-assignments ?object ?grasp-assignments)
     (object-grasps-in-gripper ?object ?grasps)
     (lisp-fun cons->grasp-assignments ?grasps ?grasp-assignments))
+  
+  (<- (action-desig ?desig (pull-open ?semantic-handle))
+    (trajectory-desig? ?desig)
+    (desig-prop ?desig (to pull-open))
+    (desig-prop ?desig (handle ?semantic-handle)))
+  
+  (<- (grasp-assignments ?semantic-handle ?grasp-assignments)
+    (desig-prop ?semantic-handle (desig-props:type desig-props::semantic-handle))
+    (free-arms-handles-combos ?semantic-handle ?arm-handle-combos)
+    (member ?arm-handle-combo ?arm-handle-combos)
+    (setof ?grasp-assignment
+           (arm-handle-assignment
+            ?semantic-handle ?arm-handle-combo ?grasp-assignment)
+           ?grasp-assignments))
   
   (<- (action-desig ?desig (put-down ?current-obj ?loc ?grasp-assignments))
     (trajectory-desig? ?desig)
@@ -451,7 +505,9 @@
              (desig-prop ?designator (to carry))
              (desig-prop ?designator (to pull))
              (desig-prop ?designator (to push))
+             (desig-prop ?designator (to shove-into))
+             (desig-prop ?designator (to pull-open))
              (desig-prop ?designator (to debug)))))
-
+  
   (<- (available-process-module pr2-manipulation-process-module)
     (not (projection-running ?_))))
