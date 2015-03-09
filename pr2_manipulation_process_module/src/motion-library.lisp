@@ -68,7 +68,7 @@
      :name joint-names
      :position positions)))
 
-(defun arm-pose->trajectory (arm pose &key ignore-collisions raise-elbow ignore-position-check)
+(defun arm-pose->trajectory (arm pose &key ignore-collisions raise-elbow ignore-position-check (time-offset 0))
   "Calculated a trajectory from the current pose of gripper `arm' when
 trying to assume the pose `pose'."
   (cpl:with-failure-handling
@@ -76,13 +76,37 @@ trying to assume the pose `pose'."
             moveit::moveit-failure) (f)
          (declare (ignore f))
          (ros-error
-          (pr2 grasp)
-          "Failed to generate trajectory for ~a."
-          arm)))
-    (execute-move-arm-pose arm pose :quiet t :plan-only t
-                                    :ignore-collisions ignore-collisions
-                                    :raise-elbow raise-elbow
-                                    :ignore-position-check ignore-position-check)))
+          (pr2 grasp) "Failed to generate trajectory for ~a." arm)))
+    (let ((result (execute-move-arm-pose
+                   arm pose
+                   :quiet t :plan-only t
+                   :ignore-collisions ignore-collisions
+                   :raise-elbow raise-elbow
+                   :ignore-position-check ignore-position-check)))
+      (when result
+        (let ((end-time 0))
+          (values
+           (roslisp:with-fields (joint_trajectory) result
+             (roslisp:modify-message-copy
+              result
+              :joint_trajectory
+              (roslisp:with-fields (points)
+                  joint_trajectory
+                (roslisp:modify-message-copy
+                 joint_trajectory
+                 :points
+                 (map 'vector (lambda (point)
+                                (roslisp:with-fields (time_from_start)
+                                    point
+                                  (let ((time-put (+ time_from_start
+                                                     time-offset)))
+                                    (when (> time-put end-time)
+                                      (setf end-time time-put))
+                                    (roslisp:modify-message-copy
+                                     point
+                                     :time_from_start time-put))))
+                      points)))))
+           end-time))))))
 
 (defun link-distance-from-pose (link-name pose-stamped)
   (let* ((link-identity-pose (tf:pose->pose-stamped
@@ -160,10 +184,34 @@ motion."
   "Defines parameter-set specific functions (like assuming poses) for
 the manipulation parameter sets `parameter-sets' and executes the code
 `body' in this environment."
-  `(labels ((assume (pose-slot-name &optional ignore-collisions)
-              (assume-poses
-               ,parameter-sets pose-slot-name
-               :ignore-collisions ignore-collisions)))
+  `(labels ((assume-multiple (pose-slot-names)
+              (moveit:execute-trajectories
+               (cpl:mapcar-clean
+                (loop for pose-slot-name in pose-slot-names
+                      with time-offset = 0
+                      collect (destructuring-bind (pose-slot-name ignore-collisions)
+                                  pose-slot-name
+                                (cpl:mapcar-clean
+                                 (lambda (parameter-set)
+                                   (when (slot-value parameter-set slot-name)
+                                     (let ((result (arm-pose->trajectory
+                                                    (arm parameter-set)
+                                                    (slot-value parameter-set slot-name)
+                                                    :ignore-collisions ignore-collisions
+                                                    :raise-elbow (arm parameter-set)
+                                                    :time-offset time-offset)))
+                                       (when result
+                                         (multiple-value-bind (trajectory time-end) result
+                                           (setf time-offset time-end)
+                                           trajectory)))))
+                                 parameter-sets))))
+               :ignore-va t))
+            (assume (pose-slot-name &optional ignore-collisions)
+              (cond ((listp pose-slot-name)
+                     (assume-multiple pose-slot-names))
+                    (t (assume-poses
+                        ,parameter-sets pose-slot-name
+                        :ignore-collisions ignore-collisions)))))
      ,@body))
 
 (defun link-name (arm)
@@ -197,7 +245,7 @@ grasp-type, effort to use) are defined in the list `parameter-sets'."
            (declare (ignore f))
            (ros-warn (pr2 manip-pm) "Falling back to safe pose")
            (assume 'safe-pose t)))
-      (assume 'pregrasp-pose)
+      ;;(assume 'pregrasp-pose)
       (cpl:par-loop (parameter-set parameter-sets)
         (open-gripper-if-necessary (arm parameter-set)))
       (cpl:with-failure-handling
@@ -207,7 +255,7 @@ grasp-type, effort to use) are defined in the list `parameter-sets'."
              (ros-warn (pr2 manip-pm) "Falling back to pregrasp pose")
              (assume 'pregrasp-pose)))
         (moveit:without-collision-object object-name
-          (assume 'grasp-pose t)
+          (assume `((pregrasp-pose nil) (grasp-pose t)))
           (cpl:par-loop (parameter-set parameter-sets)
             (close-gripper (arm parameter-set) :max-effort (effort parameter-set)))
           (unless (every #'not (mapcar
