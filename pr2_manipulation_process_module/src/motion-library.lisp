@@ -186,25 +186,24 @@ the manipulation parameter sets `parameter-sets' and executes the code
 `body' in this environment."
   `(labels ((assume-multiple (pose-slot-names)
               (moveit:execute-trajectories
-               (cpl:mapcar-clean
-                (loop for pose-slot-name in pose-slot-names
-                      with time-offset = 0
-                      collect (destructuring-bind (pose-slot-name ignore-collisions)
-                                  pose-slot-name
-                                (cpl:mapcar-clean
-                                 (lambda (parameter-set)
-                                   (when (slot-value parameter-set slot-name)
-                                     (let ((result (arm-pose->trajectory
-                                                    (arm parameter-set)
-                                                    (slot-value parameter-set slot-name)
-                                                    :ignore-collisions ignore-collisions
-                                                    :raise-elbow (arm parameter-set)
-                                                    :time-offset time-offset)))
-                                       (when result
-                                         (multiple-value-bind (trajectory time-end) result
-                                           (setf time-offset time-end)
-                                           trajectory)))))
-                                 parameter-sets))))
+               (loop for pose-slot-name in pose-slot-names
+                     with time-offset = 0
+                     collect (destructuring-bind (pose-slot-name ignore-collisions)
+                                 pose-slot-name
+                               (cpl:mapcar-clean
+                                (lambda (parameter-set)
+                                  (when (slot-value parameter-set slot-name)
+                                    (let ((result (arm-pose->trajectory
+                                                   (arm parameter-set)
+                                                   (slot-value parameter-set slot-name)
+                                                   :ignore-collisions ignore-collisions
+                                                   :raise-elbow (arm parameter-set)
+                                                   :time-offset time-offset)))
+                                      (when result
+                                        (multiple-value-bind (trajectory time-end) result
+                                          (setf time-offset time-end)
+                                          trajectory)))))
+                                parameter-sets)))
                :ignore-va t))
             (assume (pose-slot-name &optional ignore-collisions)
               (cond ((listp pose-slot-name)
