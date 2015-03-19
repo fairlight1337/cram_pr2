@@ -357,18 +357,18 @@
                                                (grasp-pose ,(grasp-pose param-set)))))
                                     params))))
         (execute-grasps obj-name params)
+        (dolist (param-set params)
+          (with-vars-strictly-bound (?link-name)
+              (lazy-car
+               (prolog
+                `(cram-manipulation-knowledge:end-effector-link
+                  ,(arm param-set) ?link-name)))
+            (plan-knowledge:on-event
+             (make-instance 'plan-knowledge:object-attached
+                            :object obj
+                            :link ?link-name
+                            :side (arm param-set)))))
         (when action-desig
-          (dolist (param-set params)
-            (with-vars-strictly-bound (?link-name)
-                (lazy-car
-                 (prolog
-                  `(cram-manipulation-knowledge:end-effector-link
-                    ,(arm param-set) ?link-name)))
-              (plan-knowledge:on-event
-               (make-instance 'plan-knowledge:object-attached
-                              :object obj
-                              :link ?link-name
-                              :side (arm param-set)))))
           (let ((at (desig-prop-value obj 'desig-props:at)))
             (make-designator
              'location
