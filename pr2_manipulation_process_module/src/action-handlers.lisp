@@ -108,9 +108,7 @@
                          (:right "r_wrist_roll_link"))
                        0.0 (tf:make-identity-pose)))
                     (tl-pose
-                      (cl-tf2:ensure-pose-stamped-transformed
-                       *tf2* id-pose "torso_lift_link"
-                       :use-current-ros-time t))
+                      (cl-tf2:do-transform *tf2* id-pose "torso_lift_link"))
                     (tl-translated-pose
                       (tf:copy-pose-stamped
                        tl-pose
@@ -159,7 +157,7 @@
     (when arm
       (execute-move-arm-pose
        arm
-       (cl-tf2:ensure-pose-stamped-transformed
+       (cl-tf2:do-transform
         cram-roslisp-common:*tf2*
         (tf:make-pose-stamped
          (case arm
@@ -183,13 +181,13 @@
                                    (:left "l_wrist_roll_link")
                                    (:right "r_wrist_roll_link")))
                                (arm-in-tll
-                                 (cl-tf2:ensure-pose-stamped-transformed
+                                 (cl-tf2:do-transform
                                   *tf2*
                                   (tf:make-pose-stamped
                                    frame-id (ros-time)
                                    (tf:make-identity-vector)
                                    (tf:make-identity-rotation))
-                                  "/torso_lift_link" :use-current-ros-time t))
+                                  "/torso_lift_link"))
                                (raised
                                  (tf:copy-pose-stamped
                                   arm-in-tll
@@ -307,7 +305,7 @@
          (obj-pose (when obj-at (reference obj-at)))
          (obj-name (desig-prop-value obj 'desig-props:name)))
     (labels ((calculate-grasp-pose (pose grasp-offset gripper-offset)
-               (cl-tf2:ensure-pose-stamped-transformed
+               (cl-tf2:do-transform
                 *tf2* (relative-pose
                        (relative-pose pose grasp-offset)
                        gripper-offset)
@@ -338,7 +336,7 @@
                                            (effort ,(effort param-set))
                                            (object-name ,obj-name)
                                            (object-pose
-                                            ,(cl-tf2:ensure-pose-stamped-transformed
+                                            ,(cl-tf2:do-transform
                                               *tf2* obj-pose (tf:frame-id (grasp-pose param-set))))
                                            (grasp-type ,(grasp-type param-set))
                                            (pregrasp-pose ,(pregrasp-pose param-set))
@@ -350,7 +348,7 @@
                                       `(grasp ((arm ,(arm param-set))
                                                (effort ,(effort param-set))
                                                (object-pose
-                                                ,(cl-tf2:ensure-pose-stamped-transformed
+                                                ,(cl-tf2:do-transform
                                                   *tf2* obj-pose (tf:frame-id (grasp-pose param-set))))
                                                (grasp-type ,(grasp-type param-set))
                                                (pregrasp-pose ,(pregrasp-pose param-set))
@@ -420,14 +418,14 @@
   (let ((ref-frame "/base_link")
         (fin-frame "/map"))
     (let* ((base-transform-map
-             (cl-tf2:ensure-transform-available
-              *tf2* ref-frame fin-frame))
+             (cl-tf2:lookup-transform
+              *tf2* ref-frame fin-frame 0 0))
            (base-pose-map (tf:make-pose-stamped
                            (tf:frame-id base-transform-map)
                            (tf:stamp base-transform-map)
                            (tf:translation base-transform-map)
                            (tf:rotation base-transform-map)))
-           (object-pose-map (cl-tf2:ensure-pose-stamped-transformed
+           (object-pose-map (cl-tf2:do-transform
                              *tf2* object-pose fin-frame))
            (origin1 (tf:origin base-pose-map))
            (origin2 (tf:origin object-pose-map))
@@ -447,8 +445,7 @@
   (let* ((putdown-pose (pose-pointing-away-from-base
                         (reference putdown-location)))
          (pose-in-tll
-           (cl-tf2:ensure-pose-stamped-transformed
-            *tf2* putdown-pose "/torso_lift_link" :use-current-ros-time t)))
+           (cl-tf2:do-transform *tf2* putdown-pose "/torso_lift_link")))
     (tf:copy-pose-stamped
      pose-in-tll :origin (tf:v+ (tf:origin pose-in-tll)
                                 (tf:make-3d-vector 0.0 0.0 z-offset)))))

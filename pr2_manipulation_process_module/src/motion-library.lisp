@@ -112,9 +112,8 @@ trying to assume the pose `pose'."
   (let* ((link-identity-pose (tf:pose->pose-stamped
                               link-name 0.0
                               (tf:make-identity-pose)))
-         (link-in-pose-frame (cl-tf2:ensure-pose-stamped-transformed
-                              *tf2* link-identity-pose (tf:frame-id pose-stamped)
-                              :use-current-ros-time t)))
+         (link-in-pose-frame (cl-tf2:do-transform
+                              *tf2* link-identity-pose (tf:frame-id pose-stamped))))
     (tf:v-dist (tf:origin link-in-pose-frame) (tf:origin pose-stamped))))
 
 (defun pose-assumed (parameter-sets slot-name &key (threshold 3.0))
@@ -304,7 +303,7 @@ positions, grasp-type, effort to use) are defined in the list
           (mapcar (lambda (grasp-assignment)
                     (cons (side grasp-assignment)
                           (let ((pose-straight
-                                  (cl-tf2:ensure-pose-stamped-transformed
+                                  (cl-tf2:do-transform
                                    *tf2*
                                    (tf:pose->pose-stamped
                                     (link-name (side grasp-assignment))

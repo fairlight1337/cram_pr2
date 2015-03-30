@@ -211,7 +211,7 @@
            (tf:pose->pose-stamped
             link-name 0.0 (tf:make-identity-pose)))
          (link-compare-pose
-           (cl-tf2:ensure-pose-stamped-transformed
+           (cl-tf2:do-transform
             *tf2* link-id-pose (tf:frame-id pose-stamped)))
          (dist-v (tf:v-dist
                   (tf:origin pose-stamped)

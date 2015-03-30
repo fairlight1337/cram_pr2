@@ -81,8 +81,7 @@ is fundamentally different."
                       (crs:prolog
                        `(planning-group ,side ?group)))))
          (pose-in-tll
-           (cl-tf2:ensure-pose-stamped-transformed
-            *tf2* pose "/torso_lift_link" :use-current-ros-time t)))
+           (cl-tf2:do-transform *tf2* pose "/torso_lift_link")))
     (let ((state-0 (moveit:plan-link-movement
                     wrist-frame arm-group pose-in-tll
                     :touch-links
