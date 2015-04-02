@@ -208,17 +208,21 @@
                       (crs:prolog
                        `(manipulator-link ,side ?link)))))
          (link-id-pose
-           (tf:pose->pose-stamped
-            link-name 0.0 (tf:make-identity-pose)))
+           (cl-transforms-plugin:make-pose-stamped
+            (tf:make-identity-pose) link-name 0.0))
          (link-compare-pose
            (cl-tf2:do-transform
-            *tf2* link-id-pose (tf:frame-id pose-stamped)))
+            *tf2* link-id-pose (cl-tf2:get-frame-id pose-stamped)))
          (dist-v (tf:v-dist
-                  (tf:origin pose-stamped)
-                  (tf:origin link-compare-pose)))
+                  (cl-transforms:origin
+                   (cl-transforms-plugin:pose pose-stamped))
+                  (cl-transforms:origin
+                   (cl-transforms-plugin:pose link-compare-pose))))
          (dist-a-pre (tf:angle-between-quaternions
-                      (tf:orientation pose-stamped)
-                      (tf:orientation link-compare-pose)))
+                      (tf:orientation
+                       (cl-transforms-plugin:pose pose-stamped))
+                      (tf:orientation
+                       (cl-transforms-plugin:pose link-compare-pose))))
          (dist-a (cond ((> dist-a-pre pi)
                         (- dist-a-pre (* 2 pi)))
                        (t dist-a-pre))))

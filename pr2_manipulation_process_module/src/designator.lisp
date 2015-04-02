@@ -151,9 +151,9 @@
                          (tf:euler->quaternion :az z-rotation))
                         (tf:make-pose
                          (tf:make-identity-vector) orig-orient)))))
-    (tf:make-pose-stamped
-     (tf:frame-id pose-stamped) (ros-time)
-     (tf:origin pose-stamped) tran-orient)))
+    (cl-transforms-plugin:make-pose-stamped
+     (cl-tf:make-pose (tf:origin pose-stamped) tran-orient)
+     (tf:frame-id pose-stamped) (ros-time))))
 
 (defun elevate-pose (pose-stamped z-offset)
   (tf:copy-pose-stamped

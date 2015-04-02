@@ -47,10 +47,11 @@
   (etypecase pose
     (tf:pose-stamped pose)
     (tf:stamped-transform
-       (tf:make-pose-stamped
-        (tf:frame-id pose) (tf:stamp pose)
-        (cl-transforms:translation pose)
-        (cl-transforms:rotation pose)))
+       (cl-transforms-plugin:make-pose-stamped
+        (cl-tf:make-pose
+         (cl-transforms:translation pose)
+         (cl-transforms:rotation pose))
+        (tf:frame-id pose) (tf:stamp pose)))
     (location-designator (reference pose))))
 
 (defun make-action-goal (pose-stamped)

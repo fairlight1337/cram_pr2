@@ -58,6 +58,15 @@
                   ,@body)
                 (setf ,lazy-values (lazy-cdr ,lazy-values))))))
 
+(defun copy-pose-stamped (pose-stamped &key origin orientation stamp)
+  (let ((pose (pose pose-stamped)))
+    (cl-transforms-plugin:make-pose-stamped
+     (cl-tf:make-pose
+      (or origin (cl-tf:origin pose))
+      (or orientation (cl-tf:orientation pose)))
+     (cl-transforms-plugin::get-frame-id pose-stamped)
+     (or stamp (cl-transforms-plugin::get-time-stamp pose)))))
+
 (def-action-handler park-object (object grasp-assignments)
   (declare (ignore object))
   (ros-info (pr2 manip-pm) "Parking object")
@@ -110,9 +119,9 @@
                     (tl-pose
                       (cl-tf2:do-transform *tf2* id-pose "torso_lift_link"))
                     (tl-translated-pose
-                      (tf:copy-pose-stamped
+                      (copy-pose-stamped
                        tl-pose
-                       :origin (tf:v+ (tf:origin tl-pose)
+                       :origin (tf:v+ (tf:origin (cl-transforms-plugin:pose tl-pose))
                                       rel-position))))
                (pr2-manip-pm::arm-pose->trajectory
                 arm tl-translated-pose
@@ -159,14 +168,15 @@
        arm
        (cl-tf2:do-transform
         cram-roslisp-common:*tf2*
-        (tf:make-pose-stamped
+        (cl-transforms-plugin:make-pose-stamped
+         (cl-tf:make-pose
+          (tf:make-3d-vector -0.2 0.0 0.0)
+          (tf:make-identity-rotation))
          (case arm
            (:left "l_wrist_roll_link")
            (:right "r_wrist_roll_link"))
-         0.0
-         (tf:make-3d-vector -0.2 0.0 0.0)
-         (tf:make-identity-rotation))
-        "torso_lift_link")
+         0.0)
+         "torso_lift_link")
        :ignore-collisions t))))
 
 (def-action-handler park (arms obj &optional obstacles)
@@ -182,19 +192,22 @@
                                    (:right "r_wrist_roll_link")))
                                (arm-in-tll
                                  (cl-tf2:do-transform
-                                  *tf2*
-                                  (tf:make-pose-stamped
-                                   frame-id (ros-time)
-                                   (tf:make-identity-vector)
-                                   (tf:make-identity-rotation))
+                                   *tf2*
+                                   (cl-transforms-plugin:make-pose-stamped
+                                    (cl-tf:make-pose
+                                     (tf:make-identity-vector)
+                                     (tf:make-identity-rotation))
+                                    frame-id (ros-time))
                                   "/torso_lift_link"))
                                (raised
-                                 (tf:copy-pose-stamped
+                                 (copy-pose-stamped
                                   arm-in-tll
                                   :origin
-                                  (tf:v+
-                                   (tf:origin arm-in-tll)
-                                   (tf:make-3d-vector -0.1 0 0.1)))))
+                                  (cl-tf:v+
+                                   (tf:make-3d-vector -0.1 0 0.1)
+                                   (cl-tf:origin
+                                    (cl-transforms-plugin:pose
+                                     arm-in-tll))))))
                           (execute-move-arm-pose
                            arm raised :plan-only t
                                       :quiet t
@@ -241,27 +254,31 @@
                                (:left (cond
                                         ((eql grasp-type
                                               'desig-props:top-slide-down)
-                                         (tf:make-pose-stamped
-                                          "base_link" (ros-time)
-                                          (tf:make-3d-vector 0.3 0.5 1.3)
-                                          (tf:euler->quaternion
-                                           :ax 0 :ay (/ pi -2))))
-                                        (t (tf:make-pose-stamped
-                                            "base_link" (ros-time)
-                                            (tf:make-3d-vector 0.3 0.5 1.3)
-                                            (tf:euler->quaternion :ax 0)))))
+                                         (cl-transforms-plugin:make-pose-stamped
+                                          (cl-tf:make-pose
+                                           (tf:make-3d-vector 0.3 0.5 1.3)
+                                           (tf:euler->quaternion
+                                            :ax 0 :ay (/ pi -2)))
+                                          "base_link" (ros-time)))
+                                        (t (cl-transforms-plugin:make-pose-stamped
+                                            (cl-tf:make-pose
+                                             (tf:make-3d-vector 0.3 0.5 1.3)
+                                             (tf:euler->quaternion :ax 0))
+                                            "base_link" (ros-time)))))
                                (:right (cond
                                          ((eql grasp-type
                                                'desig-props:top-slide-down)
-                                          (tf:make-pose-stamped
-                                           "base_link" (ros-time)
-                                           (tf:make-3d-vector 0.3 -0.5 1.3)
-                                           (tf:euler->quaternion
-                                            :ax 0 :ay (/ pi -2))))
-                                         (t (tf:make-pose-stamped
-                                             "base_link" (ros-time)
-                                             (tf:make-3d-vector 0.3 -0.5 1.3)
-                                             (tf:euler->quaternion :ax 0))))))))
+                                          (cl-transforms-plugin:make-pose-stamped
+                                           (cl-tf:make-pose
+                                            (tf:make-3d-vector 0.3 -0.5 1.3)
+                                            (tf:euler->quaternion
+                                             :ax 0 :ay (/ pi -2)))
+                                           "base_link" (ros-time)))
+                                         (t (cl-transforms-plugin:make-pose-stamped
+                                             (cl-tf:make-pose
+                                              (tf:make-3d-vector 0.3 -0.5 1.3)
+                                              (tf:euler->quaternion :ax 0))
+                                             "base_link" (ros-time))))))))
                        (execute-move-arm-pose
                         arm carry-pose
                         :allowed-collision-objects allowed-collision-objects
@@ -420,11 +437,12 @@
     (let* ((base-transform-map
              (cl-tf2:lookup-transform
               *tf2* ref-frame fin-frame 0 0))
-           (base-pose-map (tf:make-pose-stamped
+           (base-pose-map (cl-transforms-plugin:make-pose-stamped
+                           (cl-tf:make-pose
+                            (tf:translation base-transform-map)
+                            (tf:rotation base-transform-map))
                            (tf:frame-id base-transform-map)
-                           (tf:stamp base-transform-map)
-                           (tf:translation base-transform-map)
-                           (tf:rotation base-transform-map)))
+                           (tf:stamp base-transform-map)))
            (object-pose-map (cl-tf2:do-transform
                              *tf2* object-pose fin-frame))
            (origin1 (tf:origin base-pose-map))
@@ -434,9 +452,11 @@
            (angle (+ (* (signum (- (tf:y p2) (tf:y p1)))
                         (acos (/ (- (tf:x p2) (tf:x p1)) (tf:v-dist p1 p2))))
                      (/ pi -2))))
-      (tf:make-pose-stamped fin-frame 0.0
-                            (tf:origin object-pose-map)
-                            (tf:euler->quaternion :az (+ angle (/ pi 2)))))))
+      (cl-transforms-plugin:make-pose-stamped
+       (cl-tf:make-pose
+        (tf:origin object-pose-map)
+        (tf:euler->quaternion :az (+ angle (/ pi 2))))
+       fin-frame 0.0))))
 
 (define-hook cram-language::on-begin-putdown (obj-desig loc-desig))
 (define-hook cram-language::on-finish-putdown (log-id success))
@@ -446,9 +466,12 @@
                         (reference putdown-location)))
          (pose-in-tll
            (cl-tf2:do-transform *tf2* putdown-pose "/torso_lift_link")))
-    (tf:copy-pose-stamped
-     pose-in-tll :origin (tf:v+ (tf:origin pose-in-tll)
-                                (tf:make-3d-vector 0.0 0.0 z-offset)))))
+    (copy-pose-stamped
+     pose-in-tll
+     :origin
+     (cl-tf:v+
+      (tf:make-3d-vector 0.0 0.0 z-offset)
+      (cl-tf:origin (cl-transforms-plugin:pose pose-in-tll))))))
 
 (define-hook cram-language::on-put-down-reorientation-count (object-designator))
 

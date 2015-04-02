@@ -75,27 +75,31 @@
 
 ;; Parking related poses
 (defparameter *park-pose-left-default*
-  (tf:make-pose-stamped
-   "base_link" (ros-time)
-   (tf:make-3d-vector 0.3 0.5 1.3)
-   (tf:euler->quaternion :ax 0)))
+  (cl-transforms-plugin:make-pose-stamped
+   (cl-tf:make-pose
+    (tf:make-3d-vector 0.3 0.5 1.3)
+    (tf:euler->quaternion :ax 0))
+   "base_link" (ros-time)))
 (defparameter *park-pose-right-default*
-  (tf:make-pose-stamped
-   "base_link" (ros-time)
-   (tf:make-3d-vector 0.3 -0.5 1.3)
-   (tf:euler->quaternion :ax 0)))
+  (cl-transforms-plugin:make-pose-stamped
+   (cl-tf:make-pose
+    (tf:make-3d-vector 0.3 -0.5 1.3)
+    (tf:euler->quaternion :ax 0))
+   "base_link" (ros-time)))
 (defparameter *park-pose-left-top-slide-down*
-  (tf:make-pose-stamped
-   "base_link" (ros-time)
-   (tf:make-3d-vector 0.3 0.5 1.3)
-   (tf:euler->quaternion
-    :ax 0 :ay (/ pi -2))))
+  (cl-transforms-plugin:make-pose-stamped
+   (cl-tf:make-pose
+    (tf:make-3d-vector 0.3 0.5 1.3)
+    (tf:euler->quaternion
+     :ax 0 :ay (/ pi -2)))
+   "base_link" (ros-time)))
 (defparameter *park-pose-right-top-slide-down*
-  (tf:make-pose-stamped
-   "base_link" (ros-time)
-   (tf:make-3d-vector 0.3 -0.5 1.3)
-   (tf:euler->quaternion
-    :ax 0 :ay (/ pi -2))))
+  (cl-transforms-plugin:make-pose-stamped
+   (cl-tf:make-pose
+    (tf:make-3d-vector 0.3 -0.5 1.3)
+    (tf:euler->quaternion
+     :ax 0 :ay (/ pi -2)))
+   "base_link" (ros-time)))
 
 (defun absolute-handle (obj handle
                         &key (handle-offset-pose
