@@ -124,7 +124,7 @@ applied."
                                 (tf:pose->transform
                                  (reference relative-handle-loc))
                                 handle-offset-pose))
-         (pose-stamped (tf:pose->pose-stamped
+         (pose-stamped (cl-transforms-plugin:pose->pose-stamped
                         (tf:frame-id absolute-object-pose-stamped)
                         (tf:stamp absolute-object-pose-stamped)
                         (cl-transforms:transform-pose

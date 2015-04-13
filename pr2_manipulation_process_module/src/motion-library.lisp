@@ -109,7 +109,7 @@ trying to assume the pose `pose'."
            end-time))))))
 
 (defun link-distance-from-pose (link-name pose-stamped)
-  (let* ((link-identity-pose (tf:pose->pose-stamped
+  (let* ((link-identity-pose (cl-transforms-plugin:pose->pose-stamped
                               link-name 0.0
                               (tf:make-identity-pose)))
          (link-in-pose-frame (cl-tf2:do-transform
@@ -305,12 +305,12 @@ positions, grasp-type, effort to use) are defined in the list
                           (let ((pose-straight
                                   (cl-tf2:do-transform
                                    *tf2*
-                                   (tf:pose->pose-stamped
+                                   (cl-transforms-plugin:pose->pose-stamped
                                     (link-name (side grasp-assignment))
                                     0.0
                                     (tf:make-identity-pose))
                                    "base_link")))
-                            (tf:copy-pose-stamped
+                            (cl-transforms-plugin:copy-ext-pose-stamped
                              pose-straight
                              :origin (tf:v+ (tf:origin pose-straight)
                                             (tf:make-3d-vector 0 0 distance))))))
@@ -333,7 +333,7 @@ positions, grasp-type, effort to use) are defined in the list
 (defun relative-pose (pose pose-offset)
   "Applies the pose `pose-offset' as transformation into the pose
 `pose' and returns the result in the frame of `pose'."
-  (tf:pose->pose-stamped
+  (cl-transforms-plugin:pose->pose-stamped
    (tf:frame-id pose)
    (ros-time)
    (cl-transforms:transform-pose

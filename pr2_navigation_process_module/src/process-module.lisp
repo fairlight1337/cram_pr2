@@ -109,7 +109,7 @@
          10.0 10.0)
       (declare (ignorable result status))
       (roslisp:ros-info (pr2-nav process-module) "Nav action finished.")
-      (unless (goal-reached? (tf:copy-pose-stamped
+      (unless (goal-reached? (cl-transforms-plugin:copy-ext-pose-stamped
                               goal-pose-in-fixed-frame
                               :stamp 0))
         (cpl:fail 'location-not-reached-failure

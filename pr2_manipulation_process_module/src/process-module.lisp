@@ -386,7 +386,7 @@
                                     `(cram-pr2-knowledge::end-effector-link
                                       ,(car grippers)
                                       ?target-frame)))))
-         (obj-pose-in-gripper (tf:pose->pose-stamped
+         (obj-pose-in-gripper (cl-transforms-plugin:pose->pose-stamped
                                target-frame
                                0.0
                                (cl-tf:transform-pose
@@ -433,7 +433,7 @@ its' supporting plane."
                          'location
                          `((in ,gripper)
                            (side ,side)
-                           (pose ,(tf:copy-pose-stamped
+                           (pose ,(cl-transforms-plugin:copy-ext-pose-stamped
                                    (cl-tf:transform-pose
                                     *tf* :pose obj-pose
                                          :target-frame (cut:var-value

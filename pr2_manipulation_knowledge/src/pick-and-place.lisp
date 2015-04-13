@@ -78,7 +78,7 @@
                                                :pose put-down-pose))
                (put-down-pose (if (not robot-pose)
                                   put-down-pose-in-fixed-frame
-                                  (tf:copy-pose-stamped
+                                  (cl-transforms-plugin:copy-ext-pose-stamped
                                    put-down-pose-in-fixed-frame
                                    :orientation (cl-transforms:q*
                                                  (tf:orientation

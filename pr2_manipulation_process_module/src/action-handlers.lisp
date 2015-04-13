@@ -58,15 +58,6 @@
                   ,@body)
                 (setf ,lazy-values (lazy-cdr ,lazy-values))))))
 
-(defun copy-pose-stamped (pose-stamped &key origin orientation stamp)
-  (let ((pose (pose pose-stamped)))
-    (cl-transforms-plugin:make-pose-stamped
-     (cl-tf:make-pose
-      (or origin (cl-tf:origin pose))
-      (or orientation (cl-tf:orientation pose)))
-     (cl-transforms-plugin::get-frame-id pose-stamped)
-     (or stamp (cl-transforms-plugin::get-time-stamp pose)))))
-
 (def-action-handler park-object (object grasp-assignments)
   (declare (ignore object))
   (ros-info (pr2 manip-pm) "Parking object")
@@ -111,7 +102,7 @@
              (arm rel-position &key (ignore-collisions t)
                   (raise-elbow t))
              (let* ((id-pose
-                      (tf:pose->pose-stamped
+                      (cl-transforms-plugin:pose->pose-stamped
                        (case arm
                          (:left "l_wrist_roll_link")
                          (:right "r_wrist_roll_link"))
@@ -119,7 +110,7 @@
                     (tl-pose
                       (cl-tf2:do-transform *tf2* id-pose "torso_lift_link"))
                     (tl-translated-pose
-                      (copy-pose-stamped
+                      (cl-transforms-plugin:copy-ext-pose-stamped
                        tl-pose
                        :origin (tf:v+ (tf:origin (cl-transforms-plugin:pose tl-pose))
                                       rel-position))))
@@ -200,7 +191,7 @@
                                     frame-id (ros-time))
                                   "/torso_lift_link"))
                                (raised
-                                 (copy-pose-stamped
+                                 (cl-transforms-plugin:copy-ext-pose-stamped
                                   arm-in-tll
                                   :origin
                                   (cl-tf:v+
@@ -466,7 +457,7 @@
                         (reference putdown-location)))
          (pose-in-tll
            (cl-tf2:do-transform *tf2* putdown-pose "/torso_lift_link")))
-    (copy-pose-stamped
+    (cl-transforms-plugin:copy-ext-pose-stamped
      pose-in-tll
      :origin
      (cl-tf:v+
@@ -485,7 +476,7 @@
                                *unhand-top-slide-down-offset*)
                               (t *unhand-offset*))))
     (labels ((gripper-putdown-pose (object-in-gripper-pose object-putdown-pose)
-               (tf:pose->pose-stamped
+               (cl-transforms-plugin:pose->pose-stamped
                 (tf:frame-id object-putdown-pose) 0.0
                 (tf:transform->pose
                  (cl-transforms:transform*

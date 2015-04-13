@@ -156,7 +156,7 @@
      (tf:frame-id pose-stamped) (ros-time))))
 
 (defun elevate-pose (pose-stamped z-offset)
-  (tf:copy-pose-stamped
+  (cl-transforms-plugin:copy-ext-pose-stamped
    pose-stamped :origin (tf:v+ (tf:origin pose-stamped)
                                (tf:make-3d-vector 0.0 0.0 z-offset))))
 
