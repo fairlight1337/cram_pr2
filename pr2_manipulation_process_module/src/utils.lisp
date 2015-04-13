@@ -146,8 +146,8 @@ satisfy these constraints is returned."
            (case (class-name (class-of pose))
              (cl-transforms:pose (cl-transforms-plugin:pose->pose-stamped "/map" (ros-time) pose))
              (cl-tf:pose-stamped
-              (cond ((or (string= (tf:frame-id pose) "map")
-                         (string= (tf:frame-id pose) "/map"))
+              (cond ((or (string= (cl-tf2:get-frame-id pose) "map")
+                         (string= (cl-tf2:get-frame-id pose) "/map"))
                      pose)
                     (t (cl-tf2:do-transform *tf2* pose "/map"))))))
          (pose-stamped-msg (tf:pose-stamped->msg pose-stamped)))

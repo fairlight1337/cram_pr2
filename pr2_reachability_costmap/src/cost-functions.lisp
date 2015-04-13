@@ -71,8 +71,8 @@
   (etypecase pose-specification
     (tf:point-stamped pose-specification)
     (tf:pose-stamped (tf:make-point-stamped
-                      (tf:frame-id pose-specification)
-                      (tf:stamp pose-specification)
+                      (cl-tf2:get-frame-id pose-specification)
+                      (cl-tf2:get-time-stamp pose-specification)
                       (cl-transforms:origin pose-specification)))
     (cl-transforms:3d-vector (tf:make-point-stamped
                               designators-ros:*fixed-frame* 0.0

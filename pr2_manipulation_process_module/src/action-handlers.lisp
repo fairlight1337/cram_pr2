@@ -345,7 +345,7 @@
                                            (object-name ,obj-name)
                                            (object-pose
                                             ,(cl-tf2:do-transform
-                                              *tf2* obj-pose (tf:frame-id (grasp-pose param-set))))
+                                              *tf2* obj-pose (cl-tf2:get-frame-id (grasp-pose param-set))))
                                            (grasp-type ,(grasp-type param-set))
                                            (pregrasp-pose ,(pregrasp-pose param-set))
                                            (grasp-pose ,(grasp-pose param-set)))))
@@ -357,7 +357,7 @@
                                                (effort ,(effort param-set))
                                                (object-pose
                                                 ,(cl-tf2:do-transform
-                                                  *tf2* obj-pose (tf:frame-id (grasp-pose param-set))))
+                                                  *tf2* obj-pose (cl-tf2:get-frame-id (grasp-pose param-set))))
                                                (grasp-type ,(grasp-type param-set))
                                                (pregrasp-pose ,(pregrasp-pose param-set))
                                                (grasp-pose ,(grasp-pose param-set)))))
@@ -432,8 +432,8 @@
                            (cl-tf:make-pose
                             (tf:translation base-transform-map)
                             (tf:rotation base-transform-map))
-                           (tf:frame-id base-transform-map)
-                           (tf:stamp base-transform-map)))
+                           (cl-tf2:get-frame-id base-transform-map)
+                           (cl-tf2:get-time-stamp base-transform-map)))
            (object-pose-map (cl-tf2:do-transform
                              *tf2* object-pose fin-frame))
            (origin1 (tf:origin base-pose-map))
@@ -477,7 +477,7 @@
                               (t *unhand-offset*))))
     (labels ((gripper-putdown-pose (object-in-gripper-pose object-putdown-pose)
                (cl-transforms-plugin:pose->pose-stamped
-                (tf:frame-id object-putdown-pose) 0.0
+                (cl-tf2:get-frame-id object-putdown-pose) 0.0
                 (tf:transform->pose
                  (cl-transforms:transform*
                   (tf:pose->transform object-putdown-pose)
@@ -613,7 +613,7 @@
       (roslisp:publish publisher
                        (roslisp:make-message
                         "geometry_msgs/PoseArray"
-                        (frame_id header) (tf:frame-id
+                        (frame_id header) (cl-tf2:get-frame-id
                                            (reference (desig-prop-value
                                                        (first absolute-handles) 'desig-props::at)))
                         (poses) pose-msgs)))))

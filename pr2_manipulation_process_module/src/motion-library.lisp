@@ -113,7 +113,7 @@ trying to assume the pose `pose'."
                               link-name 0.0
                               (tf:make-identity-pose)))
          (link-in-pose-frame (cl-tf2:do-transform
-                              *tf2* link-identity-pose (tf:frame-id pose-stamped))))
+                              *tf2* link-identity-pose (cl-tf2:get-frame-id pose-stamped))))
     (tf:v-dist (tf:origin link-in-pose-frame) (tf:origin pose-stamped))))
 
 (defun pose-assumed (parameter-sets slot-name &key (threshold 3.0))
@@ -334,7 +334,7 @@ positions, grasp-type, effort to use) are defined in the list
   "Applies the pose `pose-offset' as transformation into the pose
 `pose' and returns the result in the frame of `pose'."
   (cl-transforms-plugin:pose->pose-stamped
-   (tf:frame-id pose)
+   (cl-tf2:get-frame-id pose)
    (ros-time)
    (cl-transforms:transform-pose
     (cl-transforms:pose->transform pose)

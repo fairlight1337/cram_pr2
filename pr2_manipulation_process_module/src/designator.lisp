@@ -31,7 +31,7 @@
   (apply #'roslisp::make-message-fn type-str slots))
 
 (defun arm-for-pose (pose)
-  (let* ((pose-frame (tf:frame-id pose))
+  (let* ((pose-frame (cl-tf2:get-frame-id pose))
          (string-frame
            (or (when (and (> (length pose-frame) 0)
                           (string= (subseq pose-frame 0 1) "/"))
@@ -153,7 +153,7 @@
                          (tf:make-identity-vector) orig-orient)))))
     (cl-transforms-plugin:make-pose-stamped
      (cl-tf:make-pose (tf:origin pose-stamped) tran-orient)
-     (tf:frame-id pose-stamped) (ros-time))))
+     (cl-tf2:get-frame-id pose-stamped) (ros-time))))
 
 (defun elevate-pose (pose-stamped z-offset)
   (cl-transforms-plugin:copy-ext-pose-stamped
