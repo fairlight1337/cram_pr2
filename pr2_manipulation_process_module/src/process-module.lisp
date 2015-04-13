@@ -386,14 +386,14 @@
                                     `(cram-pr2-knowledge::end-effector-link
                                       ,(car grippers)
                                       ?target-frame)))))
-         (obj-pose-in-gripper (cl-transforms-plugin:pose->pose-stamped
-                               target-frame
-                               0.0
+         (obj-pose-in-gripper (cl-transforms-plugin:make-pose-stamped
                                (cl-transforms:transform-pose
                                 *tf*
                                 :pose (obj-desig-location
                                        (current-desig obj))
-                                :target-frame target-frame)))
+                                :target-frame target-frame)
+                               target-frame
+                               0.0))
          (loc-desig-in-gripper (make-designator
                                 'location
                                 (append `((pose ,obj-pose-in-gripper)

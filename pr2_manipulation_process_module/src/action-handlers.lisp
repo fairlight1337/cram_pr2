@@ -102,11 +102,12 @@
              (arm rel-position &key (ignore-collisions t)
                   (raise-elbow t))
              (let* ((id-pose
-                      (cl-transforms-plugin:pose->pose-stamped
+                      (cl-transforms-plugin:make-pose-stamped
+                       (cl-transforms:make-identity-pose)
                        (case arm
                          (:left "l_wrist_roll_link")
                          (:right "r_wrist_roll_link"))
-                       0.0 (cl-transforms:make-identity-pose)))
+                       0.0))
                     (tl-pose
                       (cl-tf2:do-transform *tf2* id-pose "torso_lift_link"))
                     (tl-translated-pose
@@ -476,13 +477,13 @@
                                *unhand-top-slide-down-offset*)
                               (t *unhand-offset*))))
     (labels ((gripper-putdown-pose (object-in-gripper-pose object-putdown-pose)
-               (cl-transforms-plugin:pose->pose-stamped
-                (cl-tf2:get-frame-id object-putdown-pose) 0.0
+               (cl-transforms-plugin:make-pose-stamped
                 (cl-transforms:transform->pose
                  (cl-transforms:transform*
                   (cl-transforms:pose->transform object-putdown-pose)
                   (cl-transforms:transform-inv
-                   (cl-transforms:pose->transform object-in-gripper-pose))))))
+                   (cl-transforms:pose->transform object-in-gripper-pose))))
+                (cl-tf2:get-frame-id object-putdown-pose) 0.0))
              (gripper-grasp-pose (grasp-assignment pose-offset object-putdown-pose)
                (relative-pose
                 (gripper-putdown-pose

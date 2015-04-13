@@ -109,9 +109,9 @@ trying to assume the pose `pose'."
            end-time))))))
 
 (defun link-distance-from-pose (link-name pose-stamped)
-  (let* ((link-identity-pose (cl-transforms-plugin:pose->pose-stamped
-                              link-name 0.0
-                              (cl-transforms:make-identity-pose)))
+  (let* ((link-identity-pose (cl-transforms-plugin:make-pose-stamped
+                              (cl-transforms:make-identity-pose)
+                              link-name 0.0))
          (link-in-pose-frame (cl-tf2:do-transform
                               *tf2* link-identity-pose (cl-tf2:get-frame-id pose-stamped))))
     (cl-transforms:v-dist (cl-transforms:origin link-in-pose-frame) (cl-transforms:origin pose-stamped))))
@@ -305,10 +305,10 @@ positions, grasp-type, effort to use) are defined in the list
                           (let ((pose-straight
                                   (cl-tf2:do-transform
                                    *tf2*
-                                   (cl-transforms-plugin:pose->pose-stamped
+                                   (cl-transforms-plugin:make-pose-stamped
+                                    (cl-transforms:make-identity-pose)
                                     (link-name (side grasp-assignment))
-                                    0.0
-                                    (cl-transforms:make-identity-pose))
+                                    0.0)
                                    "base_link")))
                             (cl-transforms-plugin:copy-ext-pose-stamped
                              pose-straight
@@ -334,9 +334,9 @@ positions, grasp-type, effort to use) are defined in the list
 (defun relative-pose (pose pose-offset)
   "Applies the pose `pose-offset' as transformation into the pose
 `pose' and returns the result in the frame of `pose'."
-  (cl-transforms-plugin:pose->pose-stamped
-   (cl-tf2:get-frame-id pose)
-   (ros-time)
+  (cl-transforms-plugin:make-pose-stamped
    (cl-transforms:transform-pose
     (cl-transforms:pose->transform pose)
-    pose-offset)))
+    pose-offset)
+   (cl-tf2:get-frame-id pose)
+   (ros-time)))

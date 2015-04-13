@@ -144,7 +144,7 @@ satisfy these constraints is returned."
 (defun publish-pose (pose topic)
   (let* ((pose-stamped
            (case (class-name (class-of pose))
-             (cl-transforms:pose (cl-transforms-plugin:pose->pose-stamped "/map" (ros-time) pose))
+             (cl-transforms:pose (cl-transforms-plugin:make-pose-stamped pose "/map" (ros-time)))
              (cl-transforms-plugin:pose-stamped
               (cond ((or (string= (cl-tf2:get-frame-id pose) "map")
                          (string= (cl-tf2:get-frame-id pose) "/map"))

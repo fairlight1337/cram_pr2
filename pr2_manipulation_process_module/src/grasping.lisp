@@ -124,13 +124,13 @@ applied."
                                 (cl-transforms:pose->transform
                                  (reference relative-handle-loc))
                                 handle-offset-pose))
-         (pose-stamped (cl-transforms-plugin:pose->pose-stamped
-                        (cl-tf2:get-frame-id absolute-object-pose-stamped)
-                        (cl-tf2:get-time-stamp absolute-object-pose-stamped)
+         (pose-stamped (cl-transforms-plugin:make-pose-stamped
                         (cl-transforms:transform-pose
                          (cl-transforms:pose->transform
                           absolute-object-pose-stamped)
-                         relative-handle-pose))))
+                         relative-handle-pose)
+                        (cl-tf2:get-frame-id absolute-object-pose-stamped)
+                        (cl-tf2:get-time-stamp absolute-object-pose-stamped))))
     (make-designator 'object (loop for desc-elem in (description handle)
                                    when (eql (car desc-elem) 'at)
                                      collect `(at ,(make-designator
