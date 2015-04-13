@@ -63,7 +63,7 @@
 
 (defun make-action-goal (pose)
   (actionlib-lisp:make-action-goal-msg *navp-client*
-    target_pose (tf:pose-stamped->msg pose)))
+    target_pose (cl-transforms-plugin:pose-stamped->msg pose)))
 
 (defun use-navp? (goal-pose)
   (let* ((pose-in-base (cl-tf2:do-transform
@@ -101,8 +101,10 @@
          (goal-pose-in-fixed-frame
            (cl-tf2:do-transform
             *tf2* goal-pose designators-ros:*fixed-frame*)))
+    ;; TODO(winkler): This is debug code and needs to be
+    ;; removed. Check why it is still here.
     (roslisp:publish (roslisp:advertise "/ppp" "geometry_msgs/PoseStamped")
-                     (tf:pose-stamped->msg goal-pose-in-fixed-frame))
+                     (cl-transforms-plugin:pose-stamped->msg goal-pose-in-fixed-frame))
     (multiple-value-bind (result status)
         (actionlib-lisp:send-goal-and-wait
          client (make-action-goal goal-pose-in-fixed-frame)

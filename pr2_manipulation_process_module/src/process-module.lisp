@@ -209,19 +209,19 @@
                        `(manipulator-link ,side ?link)))))
          (link-id-pose
            (cl-transforms-plugin:make-pose-stamped
-            (tf:make-identity-pose) link-name 0.0))
+            (cl-transforms:make-identity-pose) link-name 0.0))
          (link-compare-pose
            (cl-tf2:do-transform
             *tf2* link-id-pose (cl-tf2:get-frame-id pose-stamped)))
-         (dist-v (tf:v-dist
+         (dist-v (cl-transforms:v-dist
                   (cl-transforms:origin
                    (cl-transforms-plugin:pose pose-stamped))
                   (cl-transforms:origin
                    (cl-transforms-plugin:pose link-compare-pose))))
-         (dist-a-pre (tf:angle-between-quaternions
-                      (tf:orientation
+         (dist-a-pre (cl-transforms:angle-between-quaternions
+                      (cl-transforms:orientation
                        (cl-transforms-plugin:pose pose-stamped))
-                      (tf:orientation
+                      (cl-transforms:orientation
                        (cl-transforms-plugin:pose link-compare-pose))))
          (dist-a (cond ((> dist-a-pre pi)
                         (- dist-a-pre (* 2 pi)))
@@ -389,7 +389,7 @@
          (obj-pose-in-gripper (cl-transforms-plugin:pose->pose-stamped
                                target-frame
                                0.0
-                               (cl-tf:transform-pose
+                               (cl-transforms:transform-pose
                                 *tf*
                                 :pose (obj-desig-location
                                        (current-desig obj))
@@ -420,7 +420,7 @@ its' supporting plane."
               UPDATE-PICKED-UP-OBJECT-DESIGNATOR. Please use
               UPDATE-GRASPED-OBJECT-DESIGNATOR instead.")
   ;; get current pose of the object in map frame
-  (let* ((obj-pose (cl-tf:transform-pose
+  (let* ((obj-pose (cl-transforms:transform-pose
                     *tf* :pose (obj-desig-location (current-desig obj-desig))
                          :target-frame "/map"))
          ;; build a new location designator for the object:
@@ -434,7 +434,7 @@ its' supporting plane."
                          `((in ,gripper)
                            (side ,side)
                            (pose ,(cl-transforms-plugin:copy-ext-pose-stamped
-                                   (cl-tf:transform-pose
+                                   (cl-transforms:transform-pose
                                     *tf* :pose obj-pose
                                          :target-frame (cut:var-value
                                                         '?link

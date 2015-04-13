@@ -30,10 +30,10 @@
 
 (defun find-designator-pose-in-link (gripper-link designator)
   (find-if (lambda (pose-frame-id)
-             (equal (tf::ensure-fully-qualified-name gripper-link)
-                    (tf::ensure-fully-qualified-name pose-frame-id)))
+             (equal (cl-tf::ensure-fully-qualified-name gripper-link)
+                    (cl-tf::ensure-fully-qualified-name pose-frame-id)))
            (desig-prop-values designator 'pose)
-           :key #'tf:frame-id))
+           :key #'cl-tf2:get-frame-id))
 
 (defun get-latest-detected-object-pose (object-designator)
   "Returns the pose where the object has been detected using
@@ -62,7 +62,7 @@
 
 (defun calculate-put-down-hand-pose (gripper-link object-designator put-down-pose
                                      &key robot-pose)
-  (declare (type tf:pose-stamped put-down-pose))
+  (declare (type cl-transforms-plugin:pose-stamped put-down-pose))
   (let ((current-object (desig:current-desig object-designator)))
     (desig:with-desig-props (desig-props:at) current-object
       (assert desig-props:at () "Object ~a needs to have an `at' property"
@@ -72,7 +72,7 @@
                 "Object ~a needs to be in the gripper" current-object)
         (assert z-offset () "Object ~a needs to have a `z-offset' property" current-object)
         (let* ((pose-in-gripper (find-designator-pose-in-link gripper-link at))
-               (put-down-pose-in-fixed-frame  (tf:transform-pose
+               (put-down-pose-in-fixed-frame  (cl-transforms:transform-pose
                                                cram-roslisp-common:*tf*
                                                :target-frame designators-ros:*fixed-frame*
                                                :pose put-down-pose))
@@ -81,9 +81,9 @@
                                   (cl-transforms-plugin:copy-ext-pose-stamped
                                    put-down-pose-in-fixed-frame
                                    :orientation (cl-transforms:q*
-                                                 (tf:orientation
+                                                 (cl-transforms:orientation
                                                   (find-designator-pose-in-link "base_footprint" at))
-                                                 (tf:orientation robot-pose))))))
+                                                 (cl-transforms:orientation robot-pose))))))
           (assert pose-in-gripper () "Object ~a needs to have a `pose' property" current-object)
           (cl-transforms:transform->pose
            (cl-transforms:transform*
@@ -94,7 +94,7 @@
             (cl-transforms:transform-inv
              (cl-transforms:transform*
               (cl-transforms:make-transform
-               (tf:v* (get-tool-vector) -1)
+               (cl-transforms:v* (get-tool-vector) -1)
                (cl-transforms:make-identity-rotation))
               (cl-transforms:pose->transform pose-in-gripper))))))))))
 

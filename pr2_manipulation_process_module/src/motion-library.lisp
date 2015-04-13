@@ -111,10 +111,10 @@ trying to assume the pose `pose'."
 (defun link-distance-from-pose (link-name pose-stamped)
   (let* ((link-identity-pose (cl-transforms-plugin:pose->pose-stamped
                               link-name 0.0
-                              (tf:make-identity-pose)))
+                              (cl-transforms:make-identity-pose)))
          (link-in-pose-frame (cl-tf2:do-transform
                               *tf2* link-identity-pose (cl-tf2:get-frame-id pose-stamped))))
-    (tf:v-dist (tf:origin link-in-pose-frame) (tf:origin pose-stamped))))
+    (cl-transforms:v-dist (cl-transforms:origin link-in-pose-frame) (cl-transforms:origin pose-stamped))))
 
 (defun pose-assumed (parameter-sets slot-name &key (threshold 3.0))
   "Checks whether the pose defined in the slot `slot-name' was assumes for all parameter sets in `parameter-sets'. The value `threshold' is used as the maximum cartesian distance by which the to be assumed and the actual pose might differ in order to be valid."
@@ -308,12 +308,13 @@ positions, grasp-type, effort to use) are defined in the list
                                    (cl-transforms-plugin:pose->pose-stamped
                                     (link-name (side grasp-assignment))
                                     0.0
-                                    (tf:make-identity-pose))
+                                    (cl-transforms:make-identity-pose))
                                    "base_link")))
                             (cl-transforms-plugin:copy-ext-pose-stamped
                              pose-straight
-                             :origin (tf:v+ (tf:origin pose-straight)
-                                            (tf:make-3d-vector 0 0 distance))))))
+                             :origin (cl-transforms:v+
+                                      (cl-transforms:origin pose-straight)
+                                      (cl-transforms:make-3d-vector 0 0 distance))))))
                   grasp-assignments)))
     (cond ((= (length grasp-assignments) 1)
            (destructuring-bind (arm . pose) (first target-arm-poses)

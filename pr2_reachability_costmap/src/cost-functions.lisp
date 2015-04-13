@@ -69,24 +69,24 @@
 
 (defun ensure-point-stamped (pose-specification)
   (etypecase pose-specification
-    (tf:point-stamped pose-specification)
-    (tf:pose-stamped (tf:make-point-stamped
-                      (cl-tf2:get-frame-id pose-specification)
-                      (cl-tf2:get-time-stamp pose-specification)
-                      (cl-transforms:origin pose-specification)))
-    (cl-transforms:3d-vector (tf:make-point-stamped
+    (cl-transforms-plugin:point-stamped pose-specification)
+    (cl-transforms-plugin:pose-stamped (cl-transforms-plugin:make-point-stamped
+                                        (cl-tf2:get-frame-id pose-specification)
+                                        (cl-tf2:get-time-stamp pose-specification)
+                                        (cl-transforms:origin pose-specification)))
+    (cl-transforms:3d-vector (cl-transforms-plugin:make-point-stamped
                               designators-ros:*fixed-frame* 0.0
                               pose-specification))
-    (cl-transforms:pose (tf:make-point-stamped
+    (cl-transforms:pose (cl-transforms-plugin:make-point-stamped
                          designators-ros:*fixed-frame* 0.0
                          (cl-transforms:origin pose-specification)))))
 
 (defun get-closest-orientation (pose orientations)
   "Returns the orientation in `orientation' that is closest to the
-  orientation of `pose'. If `pose' is of type TF:POSE-STAMPED,
+  orientation of `pose'. If `pose' is of type CL-TRANSFORMS-PLUGIN:POSE-STAMPED,
   transforms it first into the fixed frame."
   (let ((pose (etypecase pose
-                (tf:pose-stamped (cl-tf2:do-transform *tf2* pose designators-ros:*fixed-frame*))
+                (cl-transforms-plugin:pose-stamped (cl-tf2:do-transform *tf2* pose designators-ros:*fixed-frame*))
                 (cl-transforms:pose pose))))
     (find-closest-orientation
      (cl-transforms:orientation pose) orientations)))
@@ -98,8 +98,8 @@ generate poses from which `poses' are reachable. `sides' indicates the
 arms to use. Multiple size lead to an OR like combination of costmaps
 of the sides. 
 
-`pose-specification' can either be a TF:POSE-STAMPED or a
-TF:POINT-STAMPED. If the parameter is a pose-stamped, the closest
+`pose-specification' can either be a CL-TRANSFORMS-PLUGIN:POSE-STAMPED or a
+CL-TRANSFORMS-PLUGIN:POINT-STAMPED. If the parameter is a pose-stamped, the closest
 orientation in the corresponding reachability-map is used. If it is a
 point-stamped, all orientations are used."
   (flet ((get-orientation-indices (reachability-map orientations)
@@ -115,10 +115,11 @@ point-stamped, all orientations are used."
       (error 'simple-error
              :format-control "`orientations' cannot be specified in combination with a CL-TRANSFORMS:POSE."))
     (let* ((point (ensure-point-stamped pose-specification))
-           (point-in-map (tf:transform-point
+           ;; TODO(winkler): Is `transform-point' missing from `cl-tf2'?
+           (point-in-map (cl-tf:transform-point
                           cram-roslisp-common:*tf*
                           :point point :target-frame designators-ros:*fixed-frame*))
-           (point-in-ik-frame (tf:transform-point
+           (point-in-ik-frame (cl-tf:transform-point
                                cram-roslisp-common:*tf*
                                :point point :target-frame *ik-reference-frame*))
            (functions (mapcar

@@ -145,12 +145,12 @@ satisfy these constraints is returned."
   (let* ((pose-stamped
            (case (class-name (class-of pose))
              (cl-transforms:pose (cl-transforms-plugin:pose->pose-stamped "/map" (ros-time) pose))
-             (cl-tf:pose-stamped
+             (cl-transforms-plugin:pose-stamped
               (cond ((or (string= (cl-tf2:get-frame-id pose) "map")
                          (string= (cl-tf2:get-frame-id pose) "/map"))
                      pose)
                     (t (cl-tf2:do-transform *tf2* pose "/map"))))))
-         (pose-stamped-msg (tf:pose-stamped->msg pose-stamped)))
+         (pose-stamped-msg (cl-transforms-plugin:pose-stamped->msg pose-stamped)))
     (roslisp:publish
      (roslisp:advertise topic "geometry_msgs/PoseStamped")
      pose-stamped-msg)))

@@ -106,29 +106,29 @@
                        (case arm
                          (:left "l_wrist_roll_link")
                          (:right "r_wrist_roll_link"))
-                       0.0 (tf:make-identity-pose)))
+                       0.0 (cl-transforms:make-identity-pose)))
                     (tl-pose
                       (cl-tf2:do-transform *tf2* id-pose "torso_lift_link"))
                     (tl-translated-pose
                       (cl-transforms-plugin:copy-ext-pose-stamped
                        tl-pose
-                       :origin (tf:v+ (tf:origin (cl-transforms-plugin:pose tl-pose))
-                                      rel-position))))
+                       :origin (cl-transforms:v+ (cl-transforms:origin (cl-transforms-plugin:pose tl-pose))
+                                                 rel-position))))
                (pr2-manip-pm::arm-pose->trajectory
                 arm tl-translated-pose
                 :ignore-collisions ignore-collisions
                 :raise-elbow (when raise-elbow arm)))))
     (moveit:execute-trajectories
      (list (relative-linear-arm-translation->trajectory
-            :left (tf:make-3d-vector 0.0 0.0 0.0))
+            :left (cl-transforms:make-3d-vector 0.0 0.0 0.0))
            (relative-linear-arm-translation->trajectory
-            :right (tf:make-3d-vector 0.0 0.0 0.0)))
+            :right (cl-transforms:make-3d-vector 0.0 0.0 0.0)))
      :ignore-va t)))
     ;; (moveit:execute-trajectories
     ;;  (list (relative-linear-arm-translation->trajectory
-    ;;         :left (tf:make-3d-vector 0.0 0.0 0.025))
+    ;;         :left (cl-transforms:make-3d-vector 0.0 0.0 0.025))
     ;;        (relative-linear-arm-translation->trajectory
-    ;;         :right (tf:make-3d-vector 0.0 0.0 0.025)))
+    ;;         :right (cl-transforms:make-3d-vector 0.0 0.0 0.025)))
     ;;  :ignore-va t)))
 
 (def-action-handler pull-open (semantic-handle)
@@ -160,9 +160,9 @@
        (cl-tf2:do-transform
         cram-roslisp-common:*tf2*
         (cl-transforms-plugin:make-pose-stamped
-         (cl-tf:make-pose
-          (tf:make-3d-vector -0.2 0.0 0.0)
-          (tf:make-identity-rotation))
+         (cl-transforms:make-pose
+          (cl-transforms:make-3d-vector -0.2 0.0 0.0)
+          (cl-transforms:make-identity-rotation))
          (case arm
            (:left "l_wrist_roll_link")
            (:right "r_wrist_roll_link"))
@@ -185,18 +185,18 @@
                                  (cl-tf2:do-transform
                                    *tf2*
                                    (cl-transforms-plugin:make-pose-stamped
-                                    (cl-tf:make-pose
-                                     (tf:make-identity-vector)
-                                     (tf:make-identity-rotation))
+                                    (cl-transforms:make-pose
+                                     (cl-transforms:make-identity-vector)
+                                     (cl-transforms:make-identity-rotation))
                                     frame-id (ros-time))
                                   "/torso_lift_link"))
                                (raised
                                  (cl-transforms-plugin:copy-ext-pose-stamped
                                   arm-in-tll
                                   :origin
-                                  (cl-tf:v+
-                                   (tf:make-3d-vector -0.1 0 0.1)
-                                   (cl-tf:origin
+                                  (cl-transforms:v+
+                                   (cl-transforms:make-3d-vector -0.1 0 0.1)
+                                   (cl-transforms:origin
                                     (cl-transforms-plugin:pose
                                      arm-in-tll))))))
                           (execute-move-arm-pose
@@ -246,29 +246,29 @@
                                         ((eql grasp-type
                                               'desig-props:top-slide-down)
                                          (cl-transforms-plugin:make-pose-stamped
-                                          (cl-tf:make-pose
-                                           (tf:make-3d-vector 0.3 0.5 1.3)
-                                           (tf:euler->quaternion
+                                          (cl-transforms:make-pose
+                                           (cl-transforms:make-3d-vector 0.3 0.5 1.3)
+                                           (cl-transforms:euler->quaternion
                                             :ax 0 :ay (/ pi -2)))
                                           "base_link" (ros-time)))
                                         (t (cl-transforms-plugin:make-pose-stamped
-                                            (cl-tf:make-pose
-                                             (tf:make-3d-vector 0.3 0.5 1.3)
-                                             (tf:euler->quaternion :ax 0))
+                                            (cl-transforms:make-pose
+                                             (cl-transforms:make-3d-vector 0.3 0.5 1.3)
+                                             (cl-transforms:euler->quaternion :ax 0))
                                             "base_link" (ros-time)))))
                                (:right (cond
                                          ((eql grasp-type
                                                'desig-props:top-slide-down)
                                           (cl-transforms-plugin:make-pose-stamped
-                                           (cl-tf:make-pose
-                                            (tf:make-3d-vector 0.3 -0.5 1.3)
-                                            (tf:euler->quaternion
+                                           (cl-transforms:make-pose
+                                            (cl-transforms:make-3d-vector 0.3 -0.5 1.3)
+                                            (cl-transforms:euler->quaternion
                                              :ax 0 :ay (/ pi -2)))
                                            "base_link" (ros-time)))
                                          (t (cl-transforms-plugin:make-pose-stamped
-                                             (cl-tf:make-pose
-                                              (tf:make-3d-vector 0.3 -0.5 1.3)
-                                              (tf:euler->quaternion :ax 0))
+                                             (cl-transforms:make-pose
+                                              (cl-transforms:make-3d-vector 0.3 -0.5 1.3)
+                                              (cl-transforms:euler->quaternion :ax 0))
                                              "base_link" (ros-time))))))))
                        (execute-move-arm-pose
                         arm carry-pose
@@ -336,7 +336,7 @@
       (let ((params (mapcar #'grasp-parameters assignments-list)))
         (dolist (param-set params)
           (let ((pub (roslisp:advertise "/dhdhdh" "geometry_msgs/PoseStamped")))
-            (roslisp:publish pub (tf:pose-stamped->msg (pregrasp-pose param-set))))
+            (roslisp:publish pub (cl-transforms-plugin:pose-stamped->msg (pregrasp-pose param-set))))
           (when (and obj-pose action-desig)
             (cram-language::on-grasp-decisions-complete
              log-id `(,@(mapcar (lambda (param-set)
@@ -429,24 +429,24 @@
              (cl-tf2:lookup-transform
               *tf2* ref-frame fin-frame 0 0))
            (base-pose-map (cl-transforms-plugin:make-pose-stamped
-                           (cl-tf:make-pose
-                            (tf:translation base-transform-map)
-                            (tf:rotation base-transform-map))
+                           (cl-transforms:make-pose
+                            (cl-transforms:translation base-transform-map)
+                            (cl-transforms:rotation base-transform-map))
                            (cl-tf2:get-frame-id base-transform-map)
                            (cl-tf2:get-time-stamp base-transform-map)))
            (object-pose-map (cl-tf2:do-transform
                              *tf2* object-pose fin-frame))
-           (origin1 (tf:origin base-pose-map))
-           (origin2 (tf:origin object-pose-map))
-           (p1 (tf:make-3d-vector (tf:x origin1) (tf:y origin1) 0.0))
-           (p2 (tf:make-3d-vector (tf:x origin2) (tf:y origin2) 0.0))
-           (angle (+ (* (signum (- (tf:y p2) (tf:y p1)))
-                        (acos (/ (- (tf:x p2) (tf:x p1)) (tf:v-dist p1 p2))))
+           (origin1 (cl-transforms:origin base-pose-map))
+           (origin2 (cl-transforms:origin object-pose-map))
+           (p1 (cl-transforms:make-3d-vector (cl-transforms:x origin1) (cl-transforms:y origin1) 0.0))
+           (p2 (cl-transforms:make-3d-vector (cl-transforms:x origin2) (cl-transforms:y origin2) 0.0))
+           (angle (+ (* (signum (- (cl-transforms:y p2) (cl-transforms:y p1)))
+                        (acos (/ (- (cl-transforms:x p2) (cl-transforms:x p1)) (cl-transforms:v-dist p1 p2))))
                      (/ pi -2))))
       (cl-transforms-plugin:make-pose-stamped
-       (cl-tf:make-pose
-        (tf:origin object-pose-map)
-        (tf:euler->quaternion :az (+ angle (/ pi 2))))
+       (cl-transforms:make-pose
+        (cl-transforms:origin object-pose-map)
+        (cl-transforms:euler->quaternion :az (+ angle (/ pi 2))))
        fin-frame 0.0))))
 
 (define-hook cram-language::on-begin-putdown (obj-desig loc-desig))
@@ -460,9 +460,9 @@
     (cl-transforms-plugin:copy-ext-pose-stamped
      pose-in-tll
      :origin
-     (cl-tf:v+
-      (tf:make-3d-vector 0.0 0.0 z-offset)
-      (cl-tf:origin (cl-transforms-plugin:pose pose-in-tll))))))
+     (cl-transforms:v+
+      (cl-transforms:make-3d-vector 0.0 0.0 z-offset)
+      (cl-transforms:origin (cl-transforms-plugin:pose pose-in-tll))))))
 
 (define-hook cram-language::on-put-down-reorientation-count (object-designator))
 
@@ -478,11 +478,11 @@
     (labels ((gripper-putdown-pose (object-in-gripper-pose object-putdown-pose)
                (cl-transforms-plugin:pose->pose-stamped
                 (cl-tf2:get-frame-id object-putdown-pose) 0.0
-                (tf:transform->pose
+                (cl-transforms:transform->pose
                  (cl-transforms:transform*
-                  (tf:pose->transform object-putdown-pose)
+                  (cl-transforms:pose->transform object-putdown-pose)
                   (cl-transforms:transform-inv
-                   (tf:pose->transform object-in-gripper-pose))))))
+                   (cl-transforms:pose->transform object-in-gripper-pose))))))
              (gripper-grasp-pose (grasp-assignment pose-offset object-putdown-pose)
                (relative-pose
                 (gripper-putdown-pose
@@ -607,7 +607,7 @@
            (map 'vector
                 (lambda (handle)
                   (let ((pose (reference (desig-prop-value handle 'desig-props::at))))
-                    (tf:pose->msg pose)))
+                    (cl-transforms-plugin:pose->msg pose)))
                 absolute-handles)))
     (let ((publisher (roslisp:advertise "/objecthandleposes" "geometry_msgs/PoseArray")))
       (roslisp:publish publisher

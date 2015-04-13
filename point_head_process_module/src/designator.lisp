@@ -45,10 +45,10 @@
 
 (defun ensure-pose-stamped (pose)
   (etypecase pose
-    (tf:pose-stamped pose)
-    (tf:stamped-transform
+    (cl-transforms-plugin:pose-stamped pose)
+    (cl-transforms-plugin:transform-stamped
        (cl-transforms-plugin:make-pose-stamped
-        (cl-tf:make-pose
+        (cl-transforms:make-pose
          (cl-transforms:translation pose)
          (cl-transforms:rotation pose))
         (cl-tf2:get-frame-id pose) (cl-tf2:get-time-stamp pose)))

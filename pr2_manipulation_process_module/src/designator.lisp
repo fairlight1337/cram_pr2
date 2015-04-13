@@ -45,9 +45,9 @@
   "Adds custom offsets to gripper poses based on their arm `side'. This is mainly intended for customly adapted robots that need special handling for gripper sides."
   ;; TODO(winkler): Move this function into `userspace' in order to not interfer with other scenarios' robot (PR2) setups.
   (ecase side
-    (:left (tf:make-pose (tf:make-3d-vector -0.035 0.0 0.0)
-                         (tf:make-identity-rotation)))
-    (:right (tf:make-identity-pose))))
+    (:left (cl-transforms:make-pose (cl-transforms:make-3d-vector -0.035 0.0 0.0)
+                                    (cl-transforms:make-identity-rotation)))
+    (:right (cl-transforms:make-identity-pose))))
 
 (defun no-trailing-zeros (lst)
   (cond ((= 0 (car (last lst)))
@@ -143,22 +143,22 @@
     maybe-sorted-combos))
 
 (defun orient-pose (pose-stamped z-rotation)
-  (let* ((orig-orient (tf:orientation pose-stamped))
-         (tran-orient (tf:orientation
+  (let* ((orig-orient (cl-transforms:orientation pose-stamped))
+         (tran-orient (cl-transforms:orientation
                        (cl-transforms:transform-pose
-                        (tf:make-transform
-                         (tf:make-identity-vector)
-                         (tf:euler->quaternion :az z-rotation))
-                        (tf:make-pose
-                         (tf:make-identity-vector) orig-orient)))))
+                        (cl-transforms:make-transform
+                         (cl-transforms:make-identity-vector)
+                         (cl-transforms:euler->quaternion :az z-rotation))
+                        (cl-transforms:make-pose
+                         (cl-transforms:make-identity-vector) orig-orient)))))
     (cl-transforms-plugin:make-pose-stamped
-     (cl-tf:make-pose (tf:origin pose-stamped) tran-orient)
+     (cl-transforms:make-pose (cl-transforms:origin pose-stamped) tran-orient)
      (cl-tf2:get-frame-id pose-stamped) (ros-time))))
 
 (defun elevate-pose (pose-stamped z-offset)
   (cl-transforms-plugin:copy-ext-pose-stamped
-   pose-stamped :origin (tf:v+ (tf:origin pose-stamped)
-                               (tf:make-3d-vector 0.0 0.0 z-offset))))
+   pose-stamped :origin (cl-transforms:v+ (cl-transforms:origin pose-stamped)
+                                          (cl-transforms:make-3d-vector 0.0 0.0 z-offset))))
 
 (defun rotated-poses (pose &key segments (z-offset 0.0))
   (let ((segments (or segments 8)))
