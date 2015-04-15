@@ -143,7 +143,7 @@
     maybe-sorted-combos))
 
 (defun orient-pose (pose-stamped z-rotation)
-  (let* ((orig-orient (cl-transforms:orientation pose-stamped))
+  (let* ((orig-orient (cl-transforms:orientation (cl-transforms-plugin:pose pose-stamped)))
          (tran-orient (cl-transforms:orientation
                        (cl-transforms:transform-pose
                         (cl-transforms:make-transform
@@ -152,12 +152,12 @@
                         (cl-transforms:make-pose
                          (cl-transforms:make-identity-vector) orig-orient)))))
     (cl-transforms-plugin:make-pose-stamped
-     (cl-transforms:make-pose (cl-transforms:origin pose-stamped) tran-orient)
+     (cl-transforms:make-pose (cl-transforms:origin (cl-transforms-plugin:pose pose-stamped)) tran-orient)
      (cl-tf2:get-frame-id pose-stamped) (ros-time))))
 
 (defun elevate-pose (pose-stamped z-offset)
   (cl-transforms-plugin:copy-ext-pose-stamped
-   pose-stamped :origin (cl-transforms:v+ (cl-transforms:origin pose-stamped)
+   pose-stamped :origin (cl-transforms:v+ (cl-transforms:origin (cl-transforms-plugin:pose pose-stamped))
                                           (cl-transforms:make-3d-vector 0.0 0.0 z-offset))))
 
 (defun rotated-poses (pose &key segments (z-offset 0.0))

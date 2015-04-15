@@ -386,14 +386,12 @@
                                     `(cram-pr2-knowledge::end-effector-link
                                       ,(car grippers)
                                       ?target-frame)))))
-         (obj-pose-in-gripper (cl-transforms-plugin:make-pose-stamped
-                               (cl-transforms:transform-pose
-                                *tf*
-                                :pose (obj-desig-location
-                                       (current-desig obj))
-                                :target-frame target-frame)
-                               target-frame
-                               0.0))
+         (obj-pose-in-gripper (cl-transforms-plugin:copy-ext-pose-stamped
+                               (cl-tf2:do-transform
+                                *tf2*
+                                (obj-desig-location (current-desig obj))
+                                target-frame)
+                               :stamp 0.0))
          (loc-desig-in-gripper (make-designator
                                 'location
                                 (append `((pose ,obj-pose-in-gripper)
@@ -420,9 +418,9 @@ its' supporting plane."
               UPDATE-PICKED-UP-OBJECT-DESIGNATOR. Please use
               UPDATE-GRASPED-OBJECT-DESIGNATOR instead.")
   ;; get current pose of the object in map frame
-  (let* ((obj-pose (cl-transforms:transform-pose
-                    *tf* :pose (obj-desig-location (current-desig obj-desig))
-                         :target-frame "/map"))
+  (let* ((obj-pose (cl-tf2:do-transform
+                     *tf2* (obj-desig-location (current-desig obj-desig))
+                     "/map"))
          ;; build a new location designator for the object:
          ;; the transform will be in the wrist frame of the `side' gripper
          ;; thus it'll move with the gripper;
@@ -434,16 +432,16 @@ its' supporting plane."
                          `((in ,gripper)
                            (side ,side)
                            (pose ,(cl-transforms-plugin:copy-ext-pose-stamped
-                                   (cl-transforms:transform-pose
-                                    *tf* :pose obj-pose
-                                         :target-frame (cut:var-value
-                                                        '?link
-                                                        (first
-                                                         (crs:prolog
-                                                          `(manipulator-link ,side ?link)))))
+                                   (cl-tf2:do-transform
+                                     *tf2* obj-pose
+                                     (cut:var-value
+                                      '?link
+                                      (first
+                                       (crs:prolog
+                                        `(manipulator-link ,side ?link)))))
                                    :stamp 0.0))
                            (height ,height)
-                           (orientation ,(cl-transforms:orientation obj-pose))))))
+                           (orientation ,(cl-transforms:orientation (cl-transforms-plugin:pose obj-pose)))))))
     ;; build and equate new object designator using the new location designator
     ;; NOTE: this usage of make-designator does it both in one line
     (make-designator
