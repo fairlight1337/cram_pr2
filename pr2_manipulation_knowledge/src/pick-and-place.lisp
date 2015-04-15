@@ -72,10 +72,10 @@
                 "Object ~a needs to be in the gripper" current-object)
         (assert z-offset () "Object ~a needs to have a `z-offset' property" current-object)
         (let* ((pose-in-gripper (find-designator-pose-in-link gripper-link at))
-               (put-down-pose-in-fixed-frame  (cl-transforms:transform-pose
-                                               cram-roslisp-common:*tf*
-                                               :target-frame designators-ros:*fixed-frame*
-                                               :pose put-down-pose))
+               (put-down-pose-in-fixed-frame  (cl-tf2:do-transform
+                                                cram-roslisp-common:*tf2*
+                                                put-down-pose
+                                                designators-ros:*fixed-frame*))
                (put-down-pose (if (not robot-pose)
                                   put-down-pose-in-fixed-frame
                                   (cl-transforms-plugin:copy-ext-pose-stamped
