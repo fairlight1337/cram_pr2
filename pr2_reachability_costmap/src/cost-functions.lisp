@@ -116,12 +116,13 @@ point-stamped, all orientations are used."
              :format-control "`orientations' cannot be specified in combination with a CL-TRANSFORMS:POSE."))
     (let* ((point (ensure-point-stamped pose-specification))
            ;; TODO(winkler): Is `transform-point' missing from `cl-tf2'?
-           (point-in-map (cl-tf:transform-point
-                          cram-roslisp-common:*tf*
-                          :point point :target-frame designators-ros:*fixed-frame*))
-           (point-in-ik-frame (cl-tf:transform-point
-                               cram-roslisp-common:*tf*
-                               :point point :target-frame *ik-reference-frame*))
+           (point-in-map (cl-tf2:do-transform
+                           cram-roslisp-common:*tf2*
+                           point designators-ros:*fixed-frame*))
+           (point-in-ik-frame (cl-tf2:do-transform
+                                cram-roslisp-common:*tf2*
+                                point
+                                *ik-reference-frame*))
            (functions (mapcar
                        (lambda (side)
                          (let* ((reachability-map (get-reachability-map side))
