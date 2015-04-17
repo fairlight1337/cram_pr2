@@ -113,7 +113,7 @@
       (roslisp:ros-info (pr2-nav process-module) "Nav action finished.")
       (unless (goal-reached? (cl-transforms-plugin:copy-ext-pose-stamped
                               goal-pose-in-fixed-frame
-                              :stamp 0))
+                              :stamp 0.0))
         (cpl:fail 'location-not-reached-failure
                   :location desig)))))
 
