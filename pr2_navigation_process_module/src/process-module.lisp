@@ -80,13 +80,14 @@
          (< goal-angle *navp-max-angle*))))
 
 (defun goal-reached? (goal-pose)
-  (let* ((pose-in-base (cl-tf2:do-transform *tf2* goal-pose "/base_footprint"))
+  (let* ((pose-in-base (cl-tf2:do-transform *tf2* goal-pose
+                         "/base_footprint"))
          (goal-dist (cl-transforms:v-norm
-                     (cl-transforms:origin pose-in-base)))
+                     (cl-transforms:origin (cl-transforms-plugin:pose pose-in-base))))
          (goal-angle (second
                       (multiple-value-list
                           (cl-transforms:quaternion->axis-angle
-                           (cl-transforms:orientation pose-in-base))))))
+                           (cl-transforms:orientation (cl-transforms-plugin:pose pose-in-base)))))))
     (cond ((and (> goal-dist *xy-goal-tolerance*)
                 (> (abs goal-angle) *yaw-goal-tolerance*))
            (roslisp:ros-warn
@@ -101,19 +102,13 @@
          (goal-pose-in-fixed-frame
            (cl-tf2:do-transform
             *tf2* goal-pose designators-ros:*fixed-frame*)))
-    ;; TODO(winkler): This is debug code and needs to be
-    ;; removed. Check why it is still here.
-    (roslisp:publish (roslisp:advertise "/ppp" "geometry_msgs/PoseStamped")
-                     (cl-transforms-plugin:pose-stamped->msg goal-pose-in-fixed-frame))
     (multiple-value-bind (result status)
         (actionlib-lisp:send-goal-and-wait
          client (make-action-goal goal-pose-in-fixed-frame)
          10.0 10.0)
       (declare (ignorable result status))
       (roslisp:ros-info (pr2-nav process-module) "Nav action finished.")
-      (unless (goal-reached? (cl-transforms-plugin:copy-ext-pose-stamped
-                              goal-pose-in-fixed-frame
-                              :stamp 0.0))
+      (unless (goal-reached? goal-pose-in-fixed-frame)
         (cpl:fail 'location-not-reached-failure
                   :location desig)))))
 
