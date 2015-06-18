@@ -252,9 +252,10 @@ configuration."
                            (moveit:remove-collision-object
                             (desig-prop-value obj 'desig-props:name))
                            (prog1
-                               (cond (only-reachable (is-pose-reachable
-                                                      pose arm
-                                                      :arm-offset-pose grasp-offset))
+                               (cond (only-reachable
+                                       (is-pose-reachable
+                                        pose arm
+                                        :arm-offset-pose grasp-offset))
                                      (t (cdr (assoc arm
                                                     (arms-pose-distances
                                                      (list arm) pose

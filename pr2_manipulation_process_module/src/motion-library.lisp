@@ -30,6 +30,13 @@
 
 (defvar *registered-arm-poses* nil)
 
+(defparameter *lift-distance-override* nil)
+
+;; TODO(winkler): This is very hacky; its in here for demo purposes
+;; and its gonna be resolved into the parameter sets as soon as the
+;; demo is over.
+(defvar *raise-elbow* t)
+
 (defclass manipulation-parameters ()
   ((arm :accessor arm :initform nil :initarg :arm)
    (safe-pose :accessor safe-pose :initform nil :initarg :safe-pose)
@@ -135,7 +142,8 @@ trying to assume the pose `pose'."
                                        parameter-set))
                                    parameter-sets))))
 
-(defun assume-poses (parameter-sets slot-name &key ignore-collisions)
+(defun assume-poses (parameter-sets slot-name
+                     &key ignore-collisions raise-elbow)
   "Moves all arms defined in `parameter-sets' into the poses given by
 the slot `slot-name' as defined in the respective parameter-sets. If
 `ignore-collisions' is set, all collisions are ignored during the
@@ -161,9 +169,15 @@ motion."
              (cpl:retry))))
       (cond ((= (length parameter-sets) 1)
              (when (slot-value (first parameter-sets) slot-name)
+               (roslisp:publish
+                (roslisp:advertise "/testpose2" "geometry_msgs/PoseStamped")
+                (tf:pose-stamped->msg (tf:copy-pose-stamped (slot-value (first parameter-sets) slot-name) :stamp 0.0)
+                ))
                (execute-move-arm-pose
                 (arm (first parameter-sets))
                 (slot-value (first parameter-sets) slot-name)
+                :raise-elbow (and raise-elbow
+                                  (arm (first parameter-sets)))
                 :ignore-collisions ignore-collisions)))
             (t (moveit:execute-trajectories
                 (cpl:mapcar-clean
@@ -181,9 +195,7 @@ motion."
         (cpl:fail 'cram-plan-failures:manipulation-failure)))))
 
 (defmacro with-parameter-sets (parameter-sets &body body)
-  "Defines parameter-set specific functions (like assuming poses) for
-the manipulation parameter sets `parameter-sets' and executes the code
-`body' in this environment."
+  "Defines parameter-set specific functions (like assuming poses) for the manipulation parameter sets `parameter-sets' and executes the code `body' in this environment."
   `(labels ((assume-multiple (pose-slot-names)
               (moveit:execute-trajectories
                (loop for pose-slot-name in pose-slot-names
@@ -206,12 +218,14 @@ the manipulation parameter sets `parameter-sets' and executes the code
                                          trajectory)))))
                                parameter-sets)))
                :ignore-va t))
-            (assume (pose-slot-name &optional ignore-collisions)
+            (assume (pose-slot-name
+                     &optional ignore-collisions raise-elbow)
               (cond ((listp pose-slot-name)
                      (assume-multiple pose-slot-name))
                     (t (assume-poses
                         ,parameter-sets pose-slot-name
-                        :ignore-collisions ignore-collisions)))))
+                        :ignore-collisions ignore-collisions
+                        :raise-elbow raise-elbow)))))
      ,@body))
 
 (defun link-name (arm)
@@ -234,41 +248,51 @@ is smaller than `threshold'."
 than `threshold'."
   (< (get-gripper-state arm) threshold))
 
+(defun execute-open-drawer (pose handle-pose arm degree)
+  ;; TODO(winkler): Implement strategy for opening a drawer here.
+  )
+
+(defun execute-open-fridge (pose handle-pose arm degree)
+  ;; TODO(winkler): Implement strategy for opening a fridge here.
+  )
+
 (defun execute-grasps (object-name parameter-sets)
   "Executes simultaneous grasping of the object given by the name
 `object-name'. The grasps (object-relative gripper positions,
 grasp-type, effort to use) are defined in the list `parameter-sets'."
-  (with-parameter-sets parameter-sets
-    (cpl:with-failure-handling
-        (((or cram-plan-failures:manipulation-failure
-              cram-plan-failures:object-lost) (f)
-           (declare (ignore f))
-           (ros-warn (pr2 manip-pm) "Falling back to safe pose")
-           (assume 'safe-pose t)))
-      ;;(assume 'pregrasp-pose)
-      (cpl:par-loop (parameter-set parameter-sets)
-        (open-gripper-if-necessary (arm parameter-set)))
+  (let ((raise-elbow *raise-elbow*))
+    (with-parameter-sets parameter-sets
       (cpl:with-failure-handling
           (((or cram-plan-failures:manipulation-failure
                 cram-plan-failures:object-lost) (f)
              (declare (ignore f))
-             (ros-warn (pr2 manip-pm) "Falling back to pregrasp pose")
-             (assume 'pregrasp-pose)))
-        (moveit:without-collision-object object-name
-          (assume `((pregrasp-pose nil) (grasp-pose t)))
-          (cpl:par-loop (parameter-set parameter-sets)
-            (close-gripper (arm parameter-set) :max-effort (effort parameter-set)))
-          (unless (every #'not (mapcar
-                                (lambda (parameter-set)
-                                  (gripper-closed-p (arm parameter-set)))
-                                parameter-sets))
-            (ros-warn (pr2 manip-pm) "At least one gripper failed to grasp the object")
+             (ros-warn (pr2 manip-pm) "Falling back to safe pose")
+             (assume 'safe-pose t raise-elbow)))
+        (assume 'pregrasp-pose nil raise-elbow)
+        (cpl:par-loop (parameter-set parameter-sets)
+          (open-gripper-if-necessary (arm parameter-set)))
+        (cpl:with-failure-handling
+            (((or cram-plan-failures:manipulation-failure
+                  cram-plan-failures:object-lost) (f)
+               (declare (ignore f))
+               (ros-warn (pr2 manip-pm)
+                         "Falling back to pregrasp pose")
+               (assume 'pregrasp-pose nil raise-elbow)))
+          (moveit:without-collision-object object-name
+            (assume 'grasp-pose t raise-elbow)
             (cpl:par-loop (parameter-set parameter-sets)
-              (open-gripper-if-necessary (arm parameter-set)))
-            (cpl:fail 'cram-plan-failures:object-lost)))
-        (dolist (parameter-set parameter-sets)
-          (moveit:attach-collision-object-to-link
-           object-name (link-name (arm parameter-set))))))))
+              (close-gripper (arm parameter-set) :max-effort (effort parameter-set)))
+            (unless (every #'not (mapcar
+                                  (lambda (parameter-set)
+                                    (gripper-closed-p (arm parameter-set)))
+                                  parameter-sets))
+              (ros-warn (pr2 manip-pm) "At least one gripper failed to grasp the object")
+              (cpl:par-loop (parameter-set parameter-sets)
+                (open-gripper-if-necessary (arm parameter-set)))
+              (cpl:fail 'cram-plan-failures:object-lost)))
+          (dolist (parameter-set parameter-sets)
+            (moveit:attach-collision-object-to-link
+             object-name (link-name (arm parameter-set)))))))))
 
 (defun execute-putdowns (object-name parameter-sets)
   "Executes simultaneous putting down of the object in hand given by
@@ -299,6 +323,44 @@ positions, grasp-type, effort to use) are defined in the list
     (moveit:detach-collision-object-from-link
      object-name (link-name (arm param-set)))))
 
+(defun execute-linear-motion (sides vector)
+  (let* ((global-gripper-poses
+           (mapcar (lambda (side)
+                     (cons
+                      side
+                      (cl-tf2:ensure-pose-stamped-transformed
+                       *tf2*
+                       (cl-tf:pose->pose-stamped
+                        (case side
+                          (:left "l_wrist_roll_link")
+                          (:right "r_wrist_roll_link"))
+                        0.0
+                        (cl-transforms:make-identity-pose))
+                       "map")))
+                  sides))
+         (translated-gripper-poses
+           (mapcar (lambda (global-gripper-pose)
+                     (let ((pose (cdr global-gripper-pose))
+                           (side (car global-gripper-pose)))
+                       (cons
+                        side
+                        (cl-tf:copy-pose-stamped
+                         pose
+                         :origin (cl-tf:v+
+                                  vector
+                                  (cl-transforms:origin pose))))))
+                   global-gripper-poses)))
+    (moveit:execute-trajectories
+     (mapcar (lambda (target-arm-pose)
+               (destructuring-bind (arm . pose)
+                   target-arm-pose
+                 (execute-move-arm-pose
+                  arm pose :plan-only t
+                           :quiet t
+                           :raise-elbow arm
+                           :ignore-collisions t)))
+             translated-gripper-poses))))
+
 (defun execute-lift (grasp-assignments distance)
   (let ((target-arm-poses
           (mapcar (lambda (grasp-assignment)
@@ -314,7 +376,8 @@ positions, grasp-type, effort to use) are defined in the list
                             (tf:copy-pose-stamped
                              pose-straight
                              :origin (tf:v+ (tf:origin pose-straight)
-                                            (tf:make-3d-vector 0 0 distance))))))
+                                            (tf:make-3d-vector 0 0 (or *lift-distance-override*
+                                                                       distance)))))))
                   grasp-assignments)))
     (cond ((= (length grasp-assignments) 1)
            (destructuring-bind (arm . pose) (first target-arm-poses)
@@ -327,7 +390,7 @@ positions, grasp-type, effort to use) are defined in the list
                         (execute-move-arm-pose
                          arm pose :plan-only t
                                   :quiet t
-                                  :raise-elbow arm
+                                  ;;:raise-elbow arm
                                   :ignore-collisions t)))
                     target-arm-poses))))))
 
