@@ -595,7 +595,9 @@
          (pose-msgs
            (map 'vector
                 (lambda (handle)
-                  (let ((pose (reference (desig-prop-value handle 'desig-props::at))))
+                  (let ((pose (desig-prop-value
+                               (desig-prop-value handle 'desig-props::at)
+                               'desig-props::pose)))
                     (tf:pose->msg pose)))
                 absolute-handles)))
     (let ((publisher (roslisp:advertise "/objecthandleposes" "geometry_msgs/PoseArray")))
