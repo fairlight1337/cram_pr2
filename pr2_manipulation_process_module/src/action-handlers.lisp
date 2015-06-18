@@ -58,6 +58,34 @@
                   ,@body)
                 (setf ,lazy-values (lazy-cdr ,lazy-values))))))
 
+(defun semantic-map-object-handle-pose (semantic-object)
+  ;; TODO(winkler): Sift through the available handles and return the
+  ;; relative pose of the first one. This is a heuristic, as all the
+  ;; containers only have one handle at the moment.
+  )
+
+(def-action-handler open-container (arm location degree)
+  (let ((semantic-object
+          (first (sem-map-utils:designator->semantic-map-objects location))))
+    (when semantic-object
+      (let ((name (sem-map-utils:name semantic-object))
+            (type (sem-map-utils:obj-type semantic-object))
+            (pose (sem-map-utils:pose semantic-object))
+            (handle-pose (semantic-map-object-handle-pose
+                          semantic-object)))
+        (when handle-pose
+          (ros-info (pr2 manip-pm)
+                    "Opening ~a `~a' to degree ~a with arm ~a."
+                    type name degree arm)
+          (case type
+            (:drawer ;; TODO(winkler): Opening strategy for drawers
+             (execute-open-drawer pose handle-pose arm degree))
+            (:fridge ;; TODO(winkler): Opening strategy for fridges
+             (execute-open-fridge pose handle-pose arm degree))))))))
+
+(def-action-handler close-container (arm location degree)
+  (format t "Closing container ~a to degree ~a~%" location degree))
+
 (def-action-handler park-object (object grasp-assignments)
   (declare (ignore object))
   (ros-info (pr2 manip-pm) "Parking object")
@@ -444,8 +472,9 @@
 (define-hook cram-language::on-finish-putdown (log-id success))
 
 (defun make-putdown-pose (putdown-location &key (z-offset 0.0))
-  (let* ((putdown-pose (pose-pointing-away-from-base
-                        (reference putdown-location)))
+  (let* ((putdown-pose (reference putdown-location))
+         ;(pose-pointing-away-from-base
+          ;              (reference putdown-location)))
          (pose-in-tll
            (cl-tf2:ensure-pose-stamped-transformed
             *tf2* putdown-pose "/torso_lift_link" :use-current-ros-time t)))

@@ -27,6 +27,8 @@
 
 (in-package :pr2-manipulation-process-module)
 
+(defparameter *allowed-arms* `(:left :right))
+
 (defun make-message (type-str slots)
   (apply #'roslisp::make-message-fn type-str slots))
 
@@ -130,10 +132,17 @@
   ;; TODO(winkler): Implement this function.
   combos)
 
-(defun arms-handles-combos (arms handles &key sort-by-distance
-                                          (use-all-arms t))
+(defun arms-handles-combos (arms handles
+                            &key sort-by-distance allowed-arms
+                              (use-all-arms t))
   "Generates a lazy list of permutations of available `arms' over `handles'. If the flag `sort-by-distance' is set, the lazy list is sorted according to the lowest overall distance of one arms/handles combo set."
-  (let* ((permuted-combos (permute-grasp-combinations
+  (let* ((arms (or (unless allowed-arms arms)
+                   (cpl:mapcar-clean
+                    (lambda (arm)
+                      (when (find arm allowed-arms)
+                        arm))
+                    arms)))
+         (permuted-combos (permute-grasp-combinations
                            arms handles
                            :use-all-arms use-all-arms))
          (maybe-sorted-combos
@@ -161,7 +170,7 @@
                                (tf:make-3d-vector 0.0 0.0 z-offset))))
 
 (defun rotated-poses (pose &key segments (z-offset 0.0))
-  (let ((segments (or segments 8)))
+  (let ((segments (or segments 8))) ;; hacked, remove me
     (loop for i from 0 below segments
           as orientation-offset = (* 2 pi (/ i segments))
           collect (elevate-pose
@@ -257,7 +266,7 @@
     (object->grasp-assignments ?current-obj ?grasp-assignments)
     (-> (desig-prop ?desig (distance ?distance))
         (true)
-        (== ?distance 0.10)))
+        (== ?distance 0.0)));0.10)))
 
   (<- (grasp-type ?obj ?grasp-type)
     (current-designator ?obj ?current)
@@ -275,6 +284,8 @@
   
   (<- (free-arm ?free-arm)
     (arm ?free-arm)
+    (symbol-value *allowed-arms* ?allowed-arms)
+    (member ?free-arm ?allowed-arms)
     (not (object-in-hand ?_ ?free-arm)))
   
   (<- (arm-for-pose ?pose ?arm)
@@ -395,10 +406,15 @@
      (or (and (equal ?carry-handles 1)
               (equal ?use-all-arms nil))
          (equal ?use-all-arms t)))
+    (once
+     (or (desig-prop ?object (desig-props::sides ?sides))
+         (equal ?sides (:left :right))))
     (free-arms ?free-arms)
     (handles ?object ?handles)
     (lisp-fun arms-handles-combos ?free-arms ?handles
-              :use-all-arms ?use-all-arms ?combos))
+              :use-all-arms ?use-all-arms
+              :allowed-arms ?sides
+              ?combos))
   
   (<- (grasp-assignments-test ?object ?arm-handle-combo ?grasp-assignments)
     (setof ?grasp-assignment
@@ -444,6 +460,13 @@
     (trajectory-desig? ?desig)
     (desig-prop ?desig (to pull-open))
     (desig-prop ?desig (handle ?semantic-handle)))
+  
+  (<- (action-desig ?desig (open-container ?arm ?loc ?degree))
+    (trajectory-desig? ?desig)
+    (desig-prop ?desig (to open))
+    (desig-prop ?desig (location ?loc))
+    (desig-prop ?desig (degree ?degree))
+    (free-arm ?arm))
   
   (<- (grasp-assignments ?semantic-handle ?grasp-assignments)
     (desig-prop ?semantic-handle (desig-props:type desig-props::semantic-handle))
