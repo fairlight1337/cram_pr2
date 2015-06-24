@@ -104,6 +104,7 @@
             *tf2* goal-pose designators-ros:*fixed-frame* :use-current-ros-time t)))
     (roslisp:publish (roslisp:advertise "/ppp" "geometry_msgs/PoseStamped")
                      (tf:pose-stamped->msg goal-pose-in-fixed-frame))
+    (actionlib-lisp:wait-for-server client)
     (multiple-value-bind (result status)
         (actionlib-lisp:send-goal-and-wait
          client (make-action-goal goal-pose-in-fixed-frame)
