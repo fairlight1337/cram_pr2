@@ -266,7 +266,7 @@
     (object->grasp-assignments ?current-obj ?grasp-assignments)
     (-> (desig-prop ?desig (distance ?distance))
         (true)
-        (== ?distance 0.0)));0.10)))
+        (== ?distance 0.10)))
 
   (<- (grasp-type ?obj ?grasp-type)
     (current-designator ?obj ?current)
