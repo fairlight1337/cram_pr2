@@ -225,6 +225,7 @@
     (and (<= (abs dist-v) cartesian-distance-threshold)
          (<= (abs dist-a) angular-distance-threshold))))
 
+
 (defun execute-move-arm-pose (side pose-stamped
                               &key allowed-collision-objects
                                 ignore-collisions
@@ -297,31 +298,58 @@
                     (cram-language::on-finish-move-arm log-id nil)
                     (error 'manipulation-pose-occupied
                            :result (list side pose-stamped))))
-               (cond ((let ((result
-                              (multiple-value-bind (start trajectory)
-                                  (moveit:move-link-pose
-                                   link-name
-                                   planning-group pose-stamped
-                                   :ignore-collisions ignore-collisions
-                                   :allowed-collision-objects allowed-collision-objects
-                                   :touch-links (links-for-arm-side side)
-                                   :plan-only plan-only
-                                   :start-state start-state
-                                   :collidable-objects collidable-objects
-                                   :max-tilt max-tilt
-                                   :raise-elbow raise-elbow)
-                                        ;:reference-frame "base_link")
-                                (declare (ignorable start))
-                                (values trajectory start))))
-                        (cram-language::on-finish-move-arm log-id t)
-                        (let ((bs-update (plan-knowledge:on-event
-                                          (make-instance
-                                           'plan-knowledge:robot-state-changed))))
-                          (cond (plan-only result)
-                                (t bs-update)))))
-                     (t (cram-language::on-finish-move-arm log-id nil)
-                        (error 'manipulation-failed
-                               :result (list side pose-stamped))))))))))
+               (let* ((objects-in-hand
+                        (lazy-mapcar (lambda (bdgs)
+                                       (with-vars-bound (?o) bdgs
+                                         ?o))
+                                     (crs:prolog `(pr2-manip-pm::object-in-hand
+                                                   ?o ?side))))
+                      (object-names-in-hand
+                        (force-ll
+                         (lazy-mapcar (lambda (object)
+                                        (string-upcase (desig-prop-value
+                                                        object 'desig-props:name)))
+                                      objects-in-hand)))
+                      (touch-links-hand (case side
+                                          (:left (list "l_gripper_l_finger_tip_link"
+                                                       "l_gripper_r_finger_tip_link"
+                                                       "l_gripper_l_finger_link"
+                                                       "l_gripper_r_finger_link"
+                                                       "l_gripper_l_finger_tip_frame"
+                                                       "l_gripper_palm_link"))
+                                          (:right (list "r_gripper_l_finger_tip_link"
+                                                        "r_gripper_r_finger_tip_link"
+                                                        "r_gripper_l_finger_link"
+                                                        "r_gripper_r_finger_link"
+                                                        "r_gripper_l_finger_tip_frame"
+                                                        "r_gripper_palm_link")))))
+                 (cond ((let ((result
+                                (multiple-value-bind (start trajectory)
+                                    (moveit:move-link-pose
+                                     link-name
+                                     planning-group pose-stamped
+                                     :ignore-collisions ignore-collisions
+                                     :allowed-collision-objects allowed-collision-objects
+                                     :touch-links (links-for-arm-side side)
+                                     :plan-only plan-only
+                                     :start-state start-state
+                                     :collidable-objects collidable-objects
+                                     :max-tilt max-tilt
+                                     :raise-elbow raise-elbow
+                                     :additional-touch-link-groups `(,object-names-in-hand)
+                                     :additional-collision-objects-groups `(,touch-links-hand)
+                                     :additional-values `(t))
+                                  (declare (ignorable start))
+                                  (values trajectory start))))
+                          (cram-language::on-finish-move-arm log-id t)
+                          (let ((bs-update (plan-knowledge:on-event
+                                            (make-instance
+                                             'plan-knowledge:robot-state-changed))))
+                            (cond (plan-only result)
+                                  (t bs-update)))))
+                       (t (cram-language::on-finish-move-arm log-id nil)
+                          (error 'manipulation-failed
+                                 :result (list side pose-stamped)))))))))))
 
 (define-hook cram-language::on-close-gripper (side max-effort position))
 (define-hook cram-language::on-open-gripper (side max-effort position))
