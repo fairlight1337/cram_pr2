@@ -55,7 +55,7 @@
 (defparameter *pre-putdown-offset*
   (tf:make-pose
    (tf:make-3d-vector
-    0.0 0.0 0.2)
+    0.0 0.0 0.04)
    (tf:euler->quaternion)))
 (defparameter *putdown-offset*
   (tf:make-pose
@@ -76,14 +76,14 @@
 ;; Parking related poses
 (defparameter *park-pose-left-default*
   (tf:make-pose-stamped
-   "base_link" (ros-time)
-   (tf:make-3d-vector 0.3 0.5 1.3)
-   (tf:euler->quaternion :ax 0)))
+   "torso_lift_link" (ros-time)
+   (tf:make-3d-vector 0.1 0.45 0.3)
+   (tf:euler->quaternion :ay (/ pi -2))))
 (defparameter *park-pose-right-default*
   (tf:make-pose-stamped
-   "base_link" (ros-time)
-   (tf:make-3d-vector 0.3 -0.5 1.3)
-   (tf:euler->quaternion :ax 0)))
+   "torso_lift_link" (roslisp:ros-time)
+   (tf:make-3d-vector 0.1 -0.45 0.3)
+   (tf:euler->quaternion :ay (/ pi -2))))
 (defparameter *park-pose-left-top-slide-down*
   (tf:make-pose-stamped
    "base_link" (ros-time)

@@ -66,6 +66,27 @@
     (object-name gripper-effort gripper-close-pos side pregrasp-pose safe-pose))
 (define-hook on-execute-grasp-pregrasp-reached
     (object-name gripper-effort gripper-close-pos side pregrasp-pose safe-pose))
+(define-hook cram-language::on-grasp-object (object-name side))
+(define-hook cram-language::on-putdown-object (object-name side))
+
+(defun wait-for-gripper-at-position (arm position &key (threshold 0.01))
+  (let ((last-state -1))
+    (loop as state = (get-gripper-state arm) do
+      (roslisp:wait-duration 0.5)
+      (format t "HAVE ~a~%" (abs (- last-state state)))
+      (when (or (<= (abs (- state position)) threshold) ;; at position
+                (<= (abs (- last-state state)) 0.025)) ;; stalled
+        (return))
+      (setf last-state state))))
+
+(defun wait-for-gripper-state-stalled (side)
+  (let ((current-state (get-gripper-state side))
+        (threshold 0.05))
+    (loop as state = (get-gripper-state side) do
+      (sleep 1)
+      (cond ((< (abs (- current-state state)) threshold)
+             (return t))
+            (t (setf current-state state))))))
 
 (defun joint-trajectory-point->joint-state (header joint-names trajectory-point)
   (roslisp:with-fields (positions) trajectory-point
@@ -143,7 +164,7 @@ trying to assume the pose `pose'."
                                    parameter-sets))))
 
 (defun assume-poses (parameter-sets slot-name
-                     &key ignore-collisions raise-elbow)
+                     &key ignore-collisions raise-elbow (catch-control-failures t))
   "Moves all arms defined in `parameter-sets' into the poses given by
 the slot `slot-name' as defined in the respective parameter-sets. If
 `ignore-collisions' is set, all collisions are ignored during the
@@ -158,7 +179,11 @@ motion."
                 when max-collisions-tolerance
                   maximizing max-collisions-tolerance)))
     (cpl:with-failure-handling
-        ((cram-plan-failures:manipulation-failure (f)
+        ((moveit:control-failed (f)
+           (declare (ignore f))
+           (when catch-control-failures
+             (cpl:retry)))
+         (cram-plan-failures:manipulation-failure (f)
            (declare (ignore f))
            (when (and max-collisions-tolerance
                       (> max-collisions-tolerance 0))
@@ -171,8 +196,7 @@ motion."
              (when (slot-value (first parameter-sets) slot-name)
                (roslisp:publish
                 (roslisp:advertise "/testpose2" "geometry_msgs/PoseStamped")
-                (tf:pose-stamped->msg (tf:copy-pose-stamped (slot-value (first parameter-sets) slot-name) :stamp 0.0)
-                ))
+                (tf:pose-stamped->msg (tf:copy-pose-stamped (slot-value (first parameter-sets) slot-name) :stamp 0.0)))
                (execute-move-arm-pose
                 (arm (first parameter-sets))
                 (slot-value (first parameter-sets) slot-name)
@@ -225,7 +249,8 @@ motion."
                     (t (assume-poses
                         ,parameter-sets pose-slot-name
                         :ignore-collisions ignore-collisions
-                        :raise-elbow raise-elbow)))))
+                        :raise-elbow raise-elbow
+                        :catch-control-failures t)))))
      ,@body))
 
 (defun link-name (arm)
@@ -241,7 +266,9 @@ arm `arm'."
   "Opens the gripper on the robot's arm `arm' if its current position
 is smaller than `threshold'."
   (when (< (get-gripper-state arm) threshold)
-    (open-gripper arm)))
+    (open-gripper arm :position threshold)
+    (wait-for-gripper-at-position arm threshold)
+    (wait-for-gripper-state-stalled arm)))
 
 (defun gripper-closed-p (arm &key (threshold 0.0025))
   "Returns `t' when the robot's gripper on the arm `arm' is smaller
@@ -280,14 +307,24 @@ grasp-type, effort to use) are defined in the list `parameter-sets'."
                (assume 'pregrasp-pose nil raise-elbow)))
           (moveit:without-collision-object object-name
             (assume 'grasp-pose t raise-elbow)
-            (cpl:par-loop (parameter-set parameter-sets)
-              (close-gripper (arm parameter-set) :max-effort (effort parameter-set)))
+            (unwind-protect
+                 (loop for parameter-set in parameter-sets do
+                   (ros-info (pr2 manip-pm) "Closing gripper for arm ~a~%"
+                             (arm parameter-set))
+                   (cram-language::on-grasp-object object-name (arm parameter-set))
+                   (close-gripper (arm parameter-set)
+                                  :max-effort (effort parameter-set))
+                   (wait-for-gripper-at-position (arm parameter-set) 0.0)
+                   (format t "Sleep after closing gripper (converging..) ~a~%" (roslisp:ros-time))
+                   (roslisp:wait-duration 10)
+                   (format t "We're out! ~a~%" (roslisp:ros-time)))
+              (format t "I'm the one!~%"))
             (unless (every #'not (mapcar
                                   (lambda (parameter-set)
                                     (gripper-closed-p (arm parameter-set)))
                                   parameter-sets))
               (ros-warn (pr2 manip-pm) "At least one gripper failed to grasp the object")
-              (cpl:par-loop (parameter-set parameter-sets)
+              (loop for parameter-set in parameter-sets do
                 (open-gripper-if-necessary (arm parameter-set)))
               (cpl:fail 'cram-plan-failures:object-lost)))
           (dolist (parameter-set parameter-sets)
@@ -301,17 +338,24 @@ positions, grasp-type, effort to use) are defined in the list
 `parameter-sets'."
   (with-parameter-sets parameter-sets
     (cpl:with-failure-handling
-        ((cram-plan-failures:manipulation-failure (f)
+        (((or cram-plan-failures:manipulation-failure
+              cram-plan-failures:manipulation-pose-unreachable) (f)
            (declare (ignore f))
-           (assume 'safe-pose t)))
+           (assume 'safe-pose t)
+           (cpl:fail 'cram-plan-failures:manipulation-pose-unreachable)))
       (assume 'pre-putdown-pose)
       (cpl:with-failure-handling
-          ((cram-plan-failures:manipulation-failure (f)
+          (((or cram-plan-failures:manipulation-failure
+                cram-plan-failures:manipulation-pose-unreachable) (f)
              (declare (ignore f))
-             (assume 'pre-putdown-pose)))
+             (assume 'pre-putdown-pose)
+             (cpl:fail 'cram-plan-failures:manipulation-pose-unreachable)))
         (assume 'putdown-pose)
-        (cpl:par-loop (param-set parameter-sets)
-          (open-gripper (arm param-set)))
+        (dolist (param-set parameter-sets)
+          (cram-language::on-putdown-object object-name (arm param-set))
+          (open-gripper (arm param-set))
+          (wait-for-gripper-state-stalled (arm param-set))
+          (sleep 10))
         (block unhand
           (cpl:with-failure-handling
               ((cram-plan-failures:manipulation-failure (f)

@@ -55,8 +55,16 @@
 
 (defun make-action-goal (pose-stamped)
   (let ((pose-stamped
-          (cl-tf2:ensure-pose-stamped-transformed
-           *tf2* pose-stamped "/base_link" :use-current-ros-time t)))
+          (progn
+            (cl-tf:wait-for-transform cram-roslisp-common:*tf*
+                                      :source-frame (tf:frame-id pose-stamped)
+                                      :target-frame "/base_link"
+                                      :time 0)
+            (cl-tf:transform-pose cram-roslisp-common:*tf*
+                                  :pose pose-stamped
+                                  :target-frame "/base_link"))))
+    ;;(cl-tf2:ensure-pose-stamped-transformed
+    ;;*tf2* pose-stamped "/base_link" :use-current-ros-time t)))
     (let* ((point-stamped-msg (pose-stamped->point-stamped-msg
                                pose-stamped)))
       (actionlib-lisp:make-action-goal-msg

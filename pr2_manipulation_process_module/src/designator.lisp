@@ -258,17 +258,27 @@
     (desig-prop ?desig (to park))
     (free-arms ?arms))
   
+  (<- (action-desig ?desig (lift nil nil ?distance))
+    (trajectory-desig? ?desig)
+    (desig-prop ?desig (to lift))
+    (desig-prop ?desig (obj nil))
+    (-> (desig-prop ?desig (distance ?distance))
+        (true)
+        (== ?distance 0.02)))
+  
   (<- (action-desig ?desig (lift ?current-obj ?grasp-assignments ?distance))
     (trajectory-desig? ?desig)
     (desig-prop ?desig (to lift))
     (desig-prop ?desig (obj ?obj))
+    (not (equal ?obj nil))
     (current-designator ?obj ?current-obj)
     (object->grasp-assignments ?current-obj ?grasp-assignments)
     (-> (desig-prop ?desig (distance ?distance))
         (true)
-        (== ?distance 0.10)))
-
+        (== ?distance 0.02)))
+  
   (<- (grasp-type ?obj ?grasp-type)
+    (not (equal ?obj nil))
     (current-designator ?obj ?current)
     (desig-prop ?current (desig-props:grasp-type ?grasp-type)))
   
