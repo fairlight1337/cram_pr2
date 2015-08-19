@@ -277,9 +277,9 @@
                                           (tf:euler->quaternion
                                            :ax 0 :ay (/ pi -2))))
                                         (t (tf:make-pose-stamped
-                                            "base_link" (ros-time)
-                                            (tf:make-3d-vector 0.3 0.5 1.3)
-                                            (tf:euler->quaternion :ax 0)))))
+                                            "torso_lift_link" (roslisp:ros-time)
+                                            (tf:make-3d-vector 0.1 0.45 0.3)
+                                            (tf:euler->quaternion :ay (/ pi -2))))))
                                (:right (cond
                                          ((eql grasp-type
                                                'desig-props:top-slide-down)
@@ -289,9 +289,9 @@
                                            (tf:euler->quaternion
                                             :ax 0 :ay (/ pi -2))))
                                          (t (tf:make-pose-stamped
-                                             "base_link" (ros-time)
-                                             (tf:make-3d-vector 0.3 -0.5 1.3)
-                                             (tf:euler->quaternion :ax 0))))))))
+                                             "torso_lift_link" (roslisp:ros-time)
+                                             (tf:make-3d-vector 0.1 -0.45 0.3)
+                                             (tf:euler->quaternion :ay (/ pi -2)))))))))
                        (execute-move-arm-pose
                         arm carry-pose
                         :allowed-collision-objects allowed-collision-objects
@@ -354,7 +354,7 @@
                   :safe-pose (ecase (side assignment)
                                (:left *park-pose-left-default*)
                                (:right *park-pose-right-default*))
-                  :effort (min-object-grasp-effort obj)))))
+                  :effort 20))));; RESOLVE THIS HACK ;;(min-object-grasp-effort obj)))))
       (let ((params (mapcar #'grasp-parameters assignments-list)))
         (dolist (param-set params)
           (let ((pub (roslisp:advertise "/dhdhdh" "geometry_msgs/PoseStamped")))
@@ -384,7 +384,9 @@
                                                (pregrasp-pose ,(pregrasp-pose param-set))
                                                (grasp-pose ,(grasp-pose param-set)))))
                                     params))))
+        (format t "Before grasps~%")
         (execute-grasps obj-name params)
+        (format t "After grasps~%")
         (dolist (param-set params)
           (with-vars-strictly-bound (?link-name)
               (lazy-car
@@ -396,8 +398,10 @@
                             :object obj
                             :link ?link-name
                             :side (arm param-set)))))
+        (format t "Do1 done ~a~%" (desig:current-desig obj))
         (when action-desig
-          (let ((at (desig-prop-value obj 'desig-props:at)))
+          (let ((at (desig-prop-value (desig:current-desig obj) 'desig-props:at)))
+            (format t "Do2 done~%")
             (make-designator
              'location
              (append (description at)
@@ -442,7 +446,8 @@
                            (setf success t)
                            (success))
                       (cram-language::on-finish-grasp log-id success))))))))
-      (cpl:fail 'manipulation-pose-unreachable))))
+      (cpl:fail 'manipulation-pose-unreachable)))
+  (setf *asdasdasd* object))
 
 (defun pose-pointing-away-from-base (object-pose)
   (let ((ref-frame "/base_link")
@@ -575,6 +580,15 @@
                                                  object-designator
                                                  'desig-props::plane-distance)
                                                 0.02)) ;; Add two centimeters for good measure
+                                           (when (desig-prop-value
+                                                  object-designator
+                                                  'desig-props::dimensions)
+                                             (+ (/ (elt (desig-prop-value
+                                                         object-designator
+                                                         'desig-props::dimensions)
+                                                        2)
+                                                   2)
+                                                0.02))
                                            0.0)))
          (lazy-putdown-poses
            (crs:prolog
@@ -605,6 +619,7 @@
                     (prolog
                      `(cram-manipulation-knowledge:end-effector-link
                        ,side ?link-name)))
+                 (format t "On Event~%")
                  (plan-knowledge:on-event
                   (make-instance
                    'plan-knowledge:object-detached
