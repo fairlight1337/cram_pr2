@@ -304,6 +304,7 @@
       (error 'simple-error :format-control "No arms for lifting infered."))
     (execute-lift grasp-assignments distance)))
 
+(define-hook cram-language::on-handover-transition (side-old side-new object-name))
 (define-hook cram-language::on-begin-grasp (obj-desig))
 (define-hook cram-language::on-finish-grasp (log-id success))
 (define-hook cram-language::on-grasp-decisions-complete
@@ -414,7 +415,10 @@
 
 (def-action-handler grasp (action-desig object)
   "Handles the grasping of any given `object'. Calculates proper grasping poses for the object, based on physical gripper characteristics, free grippers, object grasp points (handles), grasp type for this object, and position of the object relative to the robot's grippers. `action-desig' is the action designator instance that triggered this handler's execution, and is later updated with more precise grasping information based on the actual infered action."
-  (display-object-handles object)
+  (grasp-ex action-desig object))
+
+(defun grasp-ex (action-desig object)
+    (display-object-handles object)
   (let ((grasp-assignments (crs:prolog `(grasp-assignments ,object ?grasp-assignments))))
     (unless
         (block object-lost-catch
@@ -555,6 +559,44 @@
          :putdown-pose putdown-hand-pose
          :unhand-pose unhand-pose)))))
 
+(defun object-pose->hand-pose (grasp-assignment object-pose)
+    (labels ((gripper-putdown-pose (object-in-gripper-pose object-putdown-pose)
+               (tf:pose->pose-stamped
+                (tf:frame-id object-putdown-pose) 0.0
+                (tf:transform->pose
+                 (cl-transforms:transform*
+                  (tf:pose->transform object-putdown-pose)
+                  (cl-transforms:transform-inv
+                   (tf:pose->transform object-in-gripper-pose))))))
+             (gripper-grasp-pose (grasp-assignment pose-offset object-putdown-pose)
+               (relative-pose
+                (gripper-putdown-pose
+                 (slot-value grasp-assignment 'pose)
+                 object-putdown-pose)
+                pose-offset))
+             (grasp-assignment->pose (grasp-assignment object-pose)
+               (gripper-grasp-pose grasp-assignment (tf:make-identity-pose) object-pose)))
+      (let* ((side (slot-value grasp-assignment 'side))
+             (pose (grasp-assignment->pose grasp-assignment object-pose))
+             (link-name
+               (cut:var-value
+                '?link
+                (first
+                 (crs:prolog
+                  `(manipulator-link ,side ?link)))))
+             (planning-group
+               (cut:var-value
+                '?group
+                (first
+                 (crs:prolog
+                  `(planning-group ,side ?group))))))
+        (publish-pose pose "/handpose")
+        (unless (moveit:plan-link-movements
+                 link-name planning-group `(,pose)
+                 :destination-validity-only t)
+          (cpl:fail 'manipulation-failure))
+        pose)))
+
 (defun perform-putdowns (object-designator grasp-assignments putdown-pose)
   (let ((putdown-parameter-sets
           (mapcar (lambda (grasp-assignment)
@@ -563,6 +605,56 @@
                   grasp-assignments)))
     (execute-putdowns (desig-prop-value object-designator 'name)
                       putdown-parameter-sets)))
+
+(def-action-handler handover (object grasp-assignments)
+  (let* ((grasp-assignment (first grasp-assignments))
+         (target-side (case (side grasp-assignment)
+                        (:left :right)
+                        (:right :left))))
+    (let* ((target-pose (tf:make-pose-stamped
+                         "torso_lift_link" 0.0
+                         (tf:make-3d-vector 0.4 0.0 0.2)
+                         (case (side grasp-assignment)
+                           (:left (tf:euler->quaternion :az (/ pi -2)))
+                           (:right (tf:euler->quaternion :az (/ pi 2))))))
+           (hand-pose (object-pose->hand-pose grasp-assignment target-pose)))
+      (block motion-block
+        (cpl:with-failure-handling ((moveit:control-failed (f)
+                                      (declare (ignore f))
+                                      (return-from motion-block)))
+          (execute-move-arm-pose (side grasp-assignment) hand-pose)))
+    (let ((old-allowed-arms *allowed-arms*))
+      (setf *allowed-arms* `(,target-side))
+      (grasp-ex (make-designator 'action nil) object)
+      (setf *allowed-arms* old-allowed-arms))
+    (open-gripper (side grasp-assignment))
+    (cram-language::on-handover-transition
+     (side grasp-assignment) target-side (desig-prop-value object 'name))
+    (sleep 5)
+    (execute-move-arm-pose
+     target-side
+     (tf:make-pose-stamped
+      (case target-side
+        (:left "l_wrist_roll_link")
+        (:right "r_wrist_roll_link"))
+      0.0
+      (tf:make-3d-vector -0.05 0.0 0.0)
+      (tf:euler->quaternion)))
+    (moveit:detach-collision-object-from-link
+     (desig-prop-value object 'name)
+      (case (side grasp-assignment)
+        (:left "l_wrist_roll_link")
+        (:right "r_wrist_roll_link"))
+      :current-pose-stamped target-pose)
+    (execute-move-arm-pose
+     (side grasp-assignment)
+     (tf:make-pose-stamped
+      (case (side grasp-assignment)
+        (:left "l_wrist_roll_link")
+        (:right "r_wrist_roll_link"))
+      0.0
+      (tf:make-3d-vector -0.05 0.0 0.0)
+      (tf:euler->quaternion))))))
 
 (def-action-handler put-down (object-designator location grasp-assignments)
   (unless (and object-designator location)

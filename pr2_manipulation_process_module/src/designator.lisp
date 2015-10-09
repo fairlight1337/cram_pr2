@@ -265,6 +265,13 @@
     (-> (desig-prop ?desig (distance ?distance))
         (true)
         (== ?distance 0.02)))
+
+  (<- (action-desig ?desig (handover ?object ?grasp-assignments))
+    (trajectory-desig? ?desig)
+    (desig-prop ?desig (to handover))
+    (desig-prop ?desig (obj ?obj))
+    (current-designator ?obj ?object)
+    (object->grasp-assignments ?object ?grasp-assignments))
   
   (<- (action-desig ?desig (lift ?current-obj ?grasp-assignments ?distance))
     (trajectory-desig? ?desig)
@@ -544,7 +551,8 @@
              (desig-prop ?designator (to push))
              (desig-prop ?designator (to shove-into))
              (desig-prop ?designator (to pull-open))
-             (desig-prop ?designator (to debug)))))
+             (desig-prop ?designator (to debug))
+             (desig-prop ?designator (to handover)))))
   
   (<- (available-process-module pr2-manipulation-process-module)
     (not (projection-running ?_))))

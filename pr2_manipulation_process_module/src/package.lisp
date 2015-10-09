@@ -57,4 +57,4 @@
                      #:distance #:direction #:pull #:push #:location #:angle
                      #:joint #:joint-axis #:lower-bound #:upper-bound #:open
                      #:shape #:dimensions #:debug #:max-handles #:grasp-type
-                     #:top-slide-down #:shove-into #:pull-open))
+                     #:top-slide-down #:shove-into #:pull-open #:handover))

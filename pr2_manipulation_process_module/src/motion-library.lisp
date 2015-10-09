@@ -307,18 +307,15 @@ grasp-type, effort to use) are defined in the list `parameter-sets'."
                (assume 'pregrasp-pose nil raise-elbow)))
           (moveit:without-collision-object object-name
             (assume 'grasp-pose t raise-elbow)
-            (unwind-protect
-                 (loop for parameter-set in parameter-sets do
-                   (ros-info (pr2 manip-pm) "Closing gripper for arm ~a~%"
-                             (arm parameter-set))
-                   (cram-language::on-grasp-object object-name (arm parameter-set))
-                   (close-gripper (arm parameter-set)
-                                  :max-effort (effort parameter-set))
-                   (wait-for-gripper-at-position (arm parameter-set) 0.0)
-                   (format t "Sleep after closing gripper (converging..) ~a~%" (roslisp:ros-time))
-                   (roslisp:wait-duration 10)
-                   (format t "We're out! ~a~%" (roslisp:ros-time)))
-              (format t "I'm the one!~%"))
+            (loop for parameter-set in parameter-sets do
+              (ros-info (pr2 manip-pm) "Closing gripper for arm ~a~%"
+                        (arm parameter-set))
+              (cram-language::on-grasp-object object-name (arm parameter-set))
+              (close-gripper (arm parameter-set)
+                             :max-effort (effort parameter-set))
+              (wait-for-gripper-at-position (arm parameter-set) 0.0)
+              (format t "Sleep after closing gripper (converging..) ~a~%" (roslisp:ros-time))
+              (roslisp:wait-duration 5))
             (unless (every #'not (mapcar
                                   (lambda (parameter-set)
                                     (gripper-closed-p (arm parameter-set)))
@@ -355,7 +352,8 @@ positions, grasp-type, effort to use) are defined in the list
           (cram-language::on-putdown-object object-name (arm param-set))
           (open-gripper (arm param-set))
           (wait-for-gripper-state-stalled (arm param-set))
-          (sleep 10))
+          ;;(sleep 10)
+          )
         (block unhand
           (cpl:with-failure-handling
               ((cram-plan-failures:manipulation-failure (f)
