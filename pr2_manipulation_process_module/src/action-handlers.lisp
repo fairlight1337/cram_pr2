@@ -481,7 +481,8 @@
 (define-hook cram-language::on-finish-putdown (log-id success))
 
 (defun make-putdown-pose (putdown-location &key (z-offset 0.0))
-  (let* ((putdown-pose (reference putdown-location))
+  (let* ((putdown-pose (or (desig-prop-value putdown-location 'pose)
+                           (reference putdown-location)))
          ;(pose-pointing-away-from-base
           ;              (reference putdown-location)))
          (pose-in-tll
