@@ -30,7 +30,7 @@
 (defparameter *pregrasp-offset*
   (tf:make-pose
    (tf:make-3d-vector
-    -0.29 0.0 0.0)
+    -0.31 0.0 0.0)
    (tf:euler->quaternion :ax (/ pi -2))))
 (defparameter *pregrasp-top-slide-down-offset*
   (tf:make-pose
@@ -50,7 +50,7 @@
 (defparameter *grasp-offset*
   (tf:make-pose
    (tf:make-3d-vector
-    -0.20 0.0 0.0)
+    -0.22 0.0 0.0)
    (tf:euler->quaternion :ax (/ pi -2))))
 (defparameter *pre-putdown-offset*
   (tf:make-pose

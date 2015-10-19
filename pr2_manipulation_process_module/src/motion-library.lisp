@@ -305,17 +305,18 @@ grasp-type, effort to use) are defined in the list `parameter-sets'."
                (ros-warn (pr2 manip-pm)
                          "Falling back to pregrasp pose")
                (assume 'pregrasp-pose nil raise-elbow)))
-          (moveit:without-collision-object object-name
-            (assume 'grasp-pose t raise-elbow)
+          ;(moveit:without-collision-object object-name
+            (assume 'grasp-pose nil raise-elbow) ;; t
             (loop for parameter-set in parameter-sets do
               (ros-info (pr2 manip-pm) "Closing gripper for arm ~a~%"
                         (arm parameter-set))
               (cram-language::on-grasp-object object-name (arm parameter-set))
               (close-gripper (arm parameter-set)
                              :max-effort (effort parameter-set))
-              (wait-for-gripper-at-position (arm parameter-set) 0.0)
-              (format t "Sleep after closing gripper (converging..) ~a~%" (roslisp:ros-time))
-              (roslisp:wait-duration 5))
+              ;;(wait-for-gripper-at-position (arm parameter-set) 0.0)
+              ;;(format t "Sleep after closing gripper (converging..) ~a~%" (roslisp:ros-time))
+              ;;(roslisp:wait-duration 5)
+              )
             (unless (every #'not (mapcar
                                   (lambda (parameter-set)
                                     (gripper-closed-p (arm parameter-set)))
@@ -323,7 +324,7 @@ grasp-type, effort to use) are defined in the list `parameter-sets'."
               (ros-warn (pr2 manip-pm) "At least one gripper failed to grasp the object")
               (loop for parameter-set in parameter-sets do
                 (open-gripper-if-necessary (arm parameter-set)))
-              (cpl:fail 'cram-plan-failures:object-lost)))
+              (cpl:fail 'cram-plan-failures:object-lost));)
           (dolist (parameter-set parameter-sets)
             (moveit:attach-collision-object-to-link
              object-name (link-name (arm parameter-set)))))))))
