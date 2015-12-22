@@ -264,7 +264,7 @@
     (desig-prop ?desig (obj nil))
     (-> (desig-prop ?desig (distance ?distance))
         (true)
-        (== ?distance 0.02)))
+        (== ?distance 0.1)))
 
   (<- (action-desig ?desig (handover ?object ?grasp-assignments))
     (trajectory-desig? ?desig)
