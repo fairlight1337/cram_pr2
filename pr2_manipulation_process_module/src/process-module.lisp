@@ -225,7 +225,6 @@
     (and (<= (abs dist-v) cartesian-distance-threshold)
          (<= (abs dist-a) angular-distance-threshold))))
 
-
 (defun execute-move-arm-pose (side pose-stamped
                               &key allowed-collision-objects
                                 ignore-collisions
@@ -301,7 +300,7 @@
                (let* ((objects-in-hand
                         (lazy-mapcar (lambda (bdgs)
                                        (with-vars-bound (?o) bdgs
-                                         ?o))
+                                         (desig:current-desig ?o)))
                                      (crs:prolog `(pr2-manip-pm::object-in-hand
                                                    ?o ?side))))
                       (object-names-in-hand
