@@ -169,8 +169,15 @@
    pose-stamped :origin (tf:v+ (tf:origin pose-stamped)
                                (tf:make-3d-vector 0.0 0.0 z-offset))))
 
-(defun rotated-poses (pose &key segments (z-offset 0.0))
-  (let ((segments (or segments 8))) ;; hacked, remove me
+(defun rotated-poses (object pose &key segments (z-offset 0.0))
+  (let* ((object-type (desig-prop-value object 'desig-props::type))
+         (matters
+           (with-vars-bound (?matters)
+               (lazy-car (crs:prolog `(orientation-matters ,object-type ?matters)))
+             ?matters))
+         (segments (or segments
+                       (and matters 1)
+                       8)))
     (loop for i from 0 below segments
           as orientation-offset = (* 2 pi (/ i segments))
           collect (elevate-pose
@@ -502,8 +509,8 @@
     (current-designator ?obj ?current-obj)
     (object->grasp-assignments ?current-obj ?grasp-assignments))
   
-  (<- (putdown-pose ?original-pose ?segments ?putdown-pose)
-    (lisp-fun rotated-poses ?original-pose
+  (<- (putdown-pose >object ?original-pose ?segments ?putdown-pose)
+    (lisp-fun rotated-poses ?object ?original-pose
               :segments ?segments
               :z-offset 0.01
               ?rotated-poses)

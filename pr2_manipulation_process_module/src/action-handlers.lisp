@@ -686,6 +686,7 @@
          (lazy-putdown-poses
            (crs:prolog
             `(putdown-pose
+              ,object-designator
               ,putdown-pose-pure
               ,(first (cram-language::on-put-down-reorientation-count
                        object-designator))
