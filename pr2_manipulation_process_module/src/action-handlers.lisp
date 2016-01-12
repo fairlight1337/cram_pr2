@@ -237,13 +237,13 @@
         (cond
           ((and obj arms)
            (let* ((newest-effective (newest-effective-designator obj))
-                  (object-name (desig-prop-value newest-effective
-                                                 'desig-props:name))
+                  (object-name (or (desig-prop-value newest-effective
+                                                     'desig-props:name)
+                                   (desig-prop-value obj 'desig-props:name)))
                   (allowed-collision-objects
                     (append
                      (cond (object-name (list object-name))
-                           (t nil))
-                     (list "all"))))
+                           (t nil)))))
              (dolist (arm (force-ll arms))
                (when arm
                  (let ((ignore-collisions nil))
@@ -385,9 +385,7 @@
                                                (pregrasp-pose ,(pregrasp-pose param-set))
                                                (grasp-pose ,(grasp-pose param-set)))))
                                     params))))
-        (format t "Before grasps~%")
         (execute-grasps obj-name params)
-        (format t "After grasps~%")
         (dolist (param-set params)
           (with-vars-strictly-bound (?link-name)
               (lazy-car
@@ -399,10 +397,8 @@
                             :object obj
                             :link ?link-name
                             :side (arm param-set)))))
-        (format t "Do1 done ~a~%" (desig:current-desig obj))
         (when action-desig
           (let ((at (desig-prop-value (desig:current-desig obj) 'desig-props:at)))
-            (format t "Do2 done~%")
             (make-designator
              'location
              (append (description at)
@@ -681,8 +677,8 @@
                                                          'desig-props::dimensions)
                                                         2)
                                                    2)
-                                                0.02))
-                                           0.0)))
+                                                0.1))
+                                           0.1)))
          (lazy-putdown-poses
            (crs:prolog
             `(putdown-pose
@@ -713,7 +709,6 @@
                     (prolog
                      `(cram-manipulation-knowledge:end-effector-link
                        ,side ?link-name)))
-                 (format t "On Event~%")
                  (plan-knowledge:on-event
                   (make-instance
                    'plan-knowledge:object-detached
