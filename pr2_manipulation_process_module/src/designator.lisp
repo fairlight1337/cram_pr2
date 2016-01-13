@@ -171,12 +171,13 @@
 
 (defun rotated-poses (object pose &key segments (z-offset 0.0))
   (let* ((object-type (desig-prop-value object 'desig-props::type))
+         (prolog-result (crs:prolog `(orientation-matters ,object-type ?matters)))
          (matters
-           (with-vars-bound (?matters)
-               (lazy-car (crs:prolog `(orientation-matters ,object-type ?matters)))
-             ?matters))
-         (segments (or segments
-                       (and matters 1)
+           (when prolog-result
+             (with-vars-bound (?matters) (lazy-car prolog-result)
+               ?matters)))
+         (segments (or (and matters 2)
+                       segments
                        8)))
     (loop for i from 0 below segments
           as orientation-offset = (* 2 pi (/ i segments))
@@ -509,7 +510,7 @@
     (current-designator ?obj ?current-obj)
     (object->grasp-assignments ?current-obj ?grasp-assignments))
   
-  (<- (putdown-pose >object ?original-pose ?segments ?putdown-pose)
+  (<- (putdown-pose ?object ?original-pose ?segments ?putdown-pose)
     (lisp-fun rotated-poses ?object ?original-pose
               :segments ?segments
               :z-offset 0.01
